@@ -1,0 +1,6 @@
+/Plots/
+/__pycache__/
+/.ideas/
+/.ipynb_checkpoints/
+*.pickle
+/Paper/
