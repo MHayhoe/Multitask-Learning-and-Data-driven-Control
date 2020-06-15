@@ -1,6 +1,4 @@
 import autograd.numpy as np
-import shared
-import matplotlib.pyplot as plt
 from Helper import sigmoid, sig_function
 
 
