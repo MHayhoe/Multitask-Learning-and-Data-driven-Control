@@ -48,9 +48,11 @@ def setup(num_counties=1, start_day=0, train_days=10):
         land_data, age_distribution_data, deaths_data, case_count_data, mobility_data = import_data('Global_Mobility_Report.csv')
 
     # Define constants
-    counties = age_distribution_data.keys()
+    counties = list(age_distribution_data.keys())
     if num_counties > 0:
-        counties = rd.sample(counties,num_counties)
+        counties = rd.sample(counties, num_counties)
+    else:
+        num_counties = len(counties)
     # counties = ['NH-Strafford County','MI-Midland County','NE-Douglas County','PA-Philadelphia County']
     num_dates, num_categories = np.shape(mobility_data[counties[0]])
     num_nyt_dates = np.shape(deaths_data[counties[0]])[0]
