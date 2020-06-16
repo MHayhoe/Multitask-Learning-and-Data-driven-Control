@@ -49,7 +49,8 @@ def setup(num_counties=1, start_day=0, train_days=10):
 
     # Define constants
     counties = age_distribution_data.keys()
-    counties = rd.sample(counties,num_counties)
+    if num_counties > 0:
+        counties = rd.sample(counties,num_counties)
     # counties = ['NH-Strafford County','MI-Midland County','NE-Douglas County','PA-Philadelphia County']
     num_dates, num_categories = np.shape(mobility_data[counties[0]])
     num_nyt_dates = np.shape(deaths_data[counties[0]])[0]
@@ -268,9 +269,9 @@ def confidence_intervals(params, validation_days, num_trials=100, confidence=0.9
 if __name__ == '__main__':
     # Define all values
     shared.real_data = True
-    num_counties = 2775
-    start_day = 50
-    train_days = 30
+    num_counties = -1  # use all counties
+    start_day = 53
+    train_days = 60
     validation_days = train_days + 10
     num_batches = 25
     num_trials = 8
