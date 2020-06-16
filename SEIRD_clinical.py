@@ -1,5 +1,7 @@
 import autograd.numpy as np
 from Helper import sigmoid, sig_function
+import multiprocessing as mp
+from functools import partial
 
 
 def make_data(true_params, consts, T=-1, counties=[], return_all=False):
@@ -79,6 +81,82 @@ def make_data(true_params, consts, T=-1, counties=[], return_all=False):
     return np.array(X_data)
 
 
+def make_data_parallel(params, consts, pool, T=-1, counties=[], return_all=False):
+    # For the multiprocessing
+    global_params = {}
+
+    # The simple function we use here is sigmoid
+    simple_function = sigmoid
+
+    # Get county information
+    if not counties:
+        counties = range(np.shape(consts['n'])[0])
+
+    # Get parameters
+    if T == -1:
+        global_params['T'] = consts['T']
+    else:
+        global_params['T'] = T
+
+    rho = consts['rho'][counties]
+    x_0 = params['c_0'][counties]
+
+    ##  Beta rates  ##
+    # I -> R
+    beta_I = sig_function(consts['mobility_data'][counties], params['beta_I_coeffs'][counties],
+                          params['beta_I_bias'][counties])
+    # E -> I
+    beta_E = np.einsum('i,ij->ij', simple_function(params['ratio_E'][counties]), beta_I)
+
+    ##  Rho rates  ##
+    # E -> I
+    global_params['rho_EI'] = simple_function(params['rho_EI_coeffs'])
+    # I -> R
+    global_params['rho_IR'] = simple_function(params['rho_IR_coeffs'])
+
+    ##  Fatality ratios  ##
+    # Ratio of I -> D, vs I -> R
+    global_params['fatality_I'] = simple_function(params['fatality_I'])
+
+    # Run the dynamics and take observations
+    do_mp = partial(make_county, global_params=global_params, return_all=return_all)
+    args = [[rho[i], x_0[i], beta_E[i,:], beta_I[i,:]] for i in range(len(counties))]
+    X_data = pool.starmap(do_mp, args, chunksize=(len(counties)//mp.cpu_count()+1))
+
+    return np.reshape(X_data, (len(X_data) * len(X_data[0]), global_params['T']))
+
+
+def make_county(rho, x_0, beta_E, beta_I, global_params, return_all):
+    X_data = []
+
+    # Initial conditions
+    E = [np.exp(x_0[0])]
+    I = [np.exp(x_0[1])]
+    R = [np.exp(x_0[2])]
+    D = [np.exp(x_0[3])]
+
+    # Run the dynamics
+    for t in range(global_params['T'] - 1):
+        # Susceptible compartment
+        S = 1 - E[-1] - I[-1] - R[-1] - D[-1]
+        # Exposed compartment
+        E.append((1 - global_params['rho_EI']) * E[-1] + rho * S * (beta_E[t] * E[-1] + beta_I[t] * I[-1]))
+        # Infected compartment
+        I.append((1 - global_params['rho_IR']) * I[-1] + global_params['rho_EI'] * E[-2])
+        # Recovered compartment
+        R.append(R[-1] + (1 - global_params['fatality_I']) * global_params['rho_IR'] * I[-2])
+        # Dead compartment
+        D.append(D[-1] + global_params['fatality_I'] * global_params['rho_IR'] * I[-2])
+    if return_all:
+        X_data.append(E)
+    X_data.append(I)
+    if return_all:
+        X_data.append(R)
+    X_data.append(D)
+
+    return np.array(X_data)
+
+
 def make_data_county(grad_params, consts, county, T=-1, return_all=False):
     # Combine the dictionaries
     params = {**grad_params, **consts}
@@ -90,6 +168,7 @@ def make_data_county(grad_params, consts, county, T=-1, return_all=False):
     c_0 = params['c_0']
 
     # Parametric function we're using is sigmoid(w'*x + b)
+    simple_function = sigmoid
 
     ##  Beta rates  ##
     # S -> E, via E

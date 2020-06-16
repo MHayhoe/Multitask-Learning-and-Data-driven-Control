@@ -1,10 +1,10 @@
 # Our scripts
-from SEIRD_clinical import make_data, sig_function
+from SEIRD_clinical import make_data, make_data_parallel
 import Initialization as Init
 from Objectives import prediction_loss, prediction_loss_sgd, prediction_county
 import shared
 import random as rd
-from Helper import inverse_sigmoid
+from Helper import inverse_sigmoid, sig_function
 
 # For autograd
 import autograd.numpy as np
@@ -16,6 +16,7 @@ import multiprocessing as mp
 from functools import partial
 from copy import copy
 import matplotlib.pyplot as plt
+import time
 
 
 # Makes an initial guess for optimization parameters
@@ -54,9 +55,33 @@ def optimize_sgd(num_epochs=20, num_batches=1, num_trials=8, step_size=0.01):
     return opt_params
 
 
+def optimize_parallel_counties(num_epochs=20, num_batches=1, num_trials=8, step_size=0.01):
+    # If number of batches is too large, make it the number of counties
+    num_batches = min(num_batches, len(shared.consts['n']))
+    shared.consts['num_batches'] = num_batches
+
+    # Multiprocessing
+    pool = mp.Pool(mp.cpu_count())
+    mp_params = []
+    for i in range(num_trials):
+        mp_params.append(optimize_trial(i, shared.consts, shared.begin, num_epochs, step_size, pool))
+    opt_params = {}
+
+    # Unpack results for each county, returning parameters which give the lowest error
+    for c in range(len(shared.consts['n'])):
+        obj_vals = [prediction_county(p,county=c) for p in mp_params]
+        county_params = copy(mp_params[np.argmin(obj_vals)])
+        for k,v in county_params.items():
+            if np.ndim(county_params[k]) >= 1:
+                county_params[k] = np.expand_dims(county_params[k][c],axis=0)
+        opt_params[c] = county_params
+
+    return opt_params
+
+
 # Picks a random initial starting point for a trial, and runs the optimization
-def optimize_trial(trial, consts, begin, num_epochs, step_size, show_plots=False):
-    grad_predict = grad(prediction_loss_sgd)
+def optimize_trial(trial, consts, begin, num_epochs, step_size, pool=None, show_plots=False):
+    grad_predict = grad(partial(prediction_loss_sgd, pool=pool))
     shared.consts = consts
     shared.begin = begin
     guess = make_guess()
@@ -168,7 +193,7 @@ def plot_trajectories(params, plot_params, batch, iteration):
         plt.title(
             '{} ({:.0f}), iteration {}'.format(shared.consts['county_names'][i], shared.consts['n'][i], iteration))
         for k in global_keys:
-            ax1.plot(log_transform(np.asarray(shared.plot_values[k])), label=k)
+            ax1.plot(np.asarray(shared.plot_values[k]), label=k)
 
         for k in county_keys:
             if not np.shape(plot_params[k][i]):  # This is a scalar

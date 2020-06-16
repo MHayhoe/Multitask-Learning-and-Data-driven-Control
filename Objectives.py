@@ -1,5 +1,5 @@
 import shared
-from SEIRD_clinical import make_data
+from SEIRD_clinical import make_data, make_data_parallel
 from Initialization import get_real_data, get_real_data_fold, get_real_data_county, train_fold
 
 import matplotlib.pyplot as plt
@@ -25,11 +25,13 @@ def prediction_loss_cv(params, iter=0, fold=None, train=True):
 
 
 # Loss based on prediction error, taking a random batch
-def prediction_loss_sgd(params, iteration=0, length=-1):
+def prediction_loss_sgd(params, iteration=0, length=-1, pool=None):
     counties = shared.batches[iteration % shared.consts['num_batches']]
     X = get_real_data(length, counties=counties)
-    X_est = make_data(params, shared.consts, T=length, counties=counties)
-
+    if pool:
+        X_est = make_data_parallel(params, shared.consts, pool, T=length, counties=counties)
+    else:
+        X_est = make_data(params, shared.consts, T=length, counties=counties)
     error = error_predict_loss(X, X_est, shared.consts['T'], counties=counties)
     return error
 

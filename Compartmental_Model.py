@@ -1,7 +1,7 @@
 # Our scripts
 import shared
 import Initialization as Init
-from Optimization import optimize_parallel, optimize, optimize_sgd
+from Optimization import optimize_parallel, optimize, optimize_sgd, optimize_parallel_counties
 from Objectives import prediction_county
 from SEIRD_clinical import make_data
 from SEIRD_Markov import make_data_Markov
@@ -268,7 +268,7 @@ def confidence_intervals(params, validation_days, num_trials=100, confidence=0.9
 if __name__ == '__main__':
     # Define all values
     shared.real_data = True
-    num_counties = 1000
+    num_counties = 2775
     start_day = 50
     train_days = 30
     validation_days = train_days + 10
