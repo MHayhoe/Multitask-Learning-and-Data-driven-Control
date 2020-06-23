@@ -47,14 +47,15 @@ def get_real_data(length, counties=[]):
         if length <= 0:
             length = shared.consts['T']
         if counties:
-            cases = shared.consts['case_data'][counties,shared.begin['cases']:(shared.begin['cases'] + length)]
+            # cases = shared.consts['case_data'][counties,shared.begin['cases']:(shared.begin['cases'] + length)]
             deaths = shared.consts['death_data'][counties,shared.begin['cases']:(shared.begin['cases'] + length)]
         else:
-            cases = shared.consts['case_data'][:,shared.begin['cases']:(shared.begin['cases'] + length)]
+            # cases = shared.consts['case_data'][:,shared.begin['cases']:(shared.begin['cases'] + length)]
             deaths = shared.consts['death_data'][:,shared.begin['cases']:(shared.begin['cases'] + length)]
-        X = np.empty((cases.shape[0]+deaths.shape[0], cases.shape[-1]))
-        X[::2,:] = cases
-        X[1::2,:] = deaths
+        # X = np.empty((cases.shape[0]+deaths.shape[0], cases.shape[-1]))
+        # X[::2,:] = cases
+        # X[1::2,:] = deaths
+        X = deaths
     else:
         _, X = make_data(shared.true_params, shared.consts, T=length)
     return X
@@ -165,5 +166,5 @@ def params_to_df_row(p, c):
                   simple_function(p['ratio_E']), simple_function(p['rho_EI_coeffs']), simple_function(p['rho_IR_coeffs']),
                   p['beta_I_bias']] + list(np.squeeze(p['beta_I_coeffs']))
     X_est = make_data(p, shared.consts, counties=[c])
-    row_data = [sc['county_names'][c][:2], sc['county_names'][c][3:]] + [int(sc['n'][c]*x) for x in X_est[0]] + [int(sc['n'][c]*x) for x in X_est[1]]
+    row_data = [sc['county_names'][c][:2], sc['county_names'][c][3:]] + [int(sc['n'][c]*x) for x in X_est[0]] + [int(sc['n'][c]*x) for x in X_est[0]]
     return row_params, row_data

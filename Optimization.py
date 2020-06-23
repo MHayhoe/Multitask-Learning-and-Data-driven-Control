@@ -122,7 +122,7 @@ def create_batches(x, num_batches):
 
 # Callback function for optimization
 def print_performance(params, iteration, gradient, trial, show_plots):
-    if iteration % (shared.consts['num_batches'] * 10) == 0:
+    if iteration % (shared.consts['num_batches'] * 100) == 0:
         print('Trial {}: epoch {}, loss {:.3e}'.format(trial, iteration // shared.consts['num_batches'], prediction_loss(params)))
         # print(gradient)
         if show_plots:

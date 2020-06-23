@@ -73,8 +73,7 @@ def make_data(true_params, consts, T=-1, counties=[], return_all=False):
             D.append(D[-1] + fatality_I[i] * rho_IR[i] * I[-2])
         if return_all:
             X_data.append(E)
-        X_data.append(I)
-        if return_all:
+            X_data.append(I)
             X_data.append(R)
         X_data.append(D)
 

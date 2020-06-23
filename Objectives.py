@@ -32,8 +32,8 @@ def prediction_loss_sgd(params, iteration=0, length=-1, pool=None):
         X_est = make_data_parallel(params, shared.consts, pool, T=length, counties=counties)
     else:
         X_est = make_data(params, shared.consts, T=length, counties=counties)
-    error = error_predict_loss(X, X_est, shared.consts['T'], counties=counties)
-    return error
+
+    return error_predict_loss(X, X_est, shared.consts['T'], counties=counties)
 
 
 # Returns the relevant parameters and constants for the given counties
@@ -79,13 +79,14 @@ def error_predict_loss(data_true, data_est, length, counties=[]):
         length = shared.consts['T']
     # Mean Square Error
     if counties:
-        n = np.repeat(shared.consts['n'][counties], 2)
-        gamma = shared.consts['gamma_death'][np.repeat(counties, 2)]
+        n = shared.consts['n'][counties]  # np.repeat(shared.consts['n'][counties], 2)
+        # gamma = shared.consts['gamma_death'][np.repeat(counties, 2)]
     else:
-        n = np.repeat(shared.consts['n'], 2)  # Since we're considering two compartments for each county
-        gamma = shared.consts['gamma_death']
+        n = shared.consts['n']  # np.repeat(shared.consts['n'], 2)  # Since we're considering two compartments for each county
+        # gamma = shared.consts['gamma_death']
 
-    return np.einsum('ij,i->', np.einsum('i,i,ij->ij', n, gamma, data_true - data_est)**2, 1/n**2) / length * 1e9
+    # return np.einsum('ij,i->', np.einsum('i,i,ij->ij', n, gamma, data_true - data_est)**2, 1/n**2) / length * 1e9
+    return np.einsum('ij,i->', (n[:,np.newaxis]*(data_true - data_est))**2, 1/n**2) / length * 1e9
     # np.sum([np.sum(np.multiply(n * shared.consts['gamma_death'][i], data_true[i] - data_est[i])**2) / n[i]**2
     #               for i in range(len(data_true))]) / length * 1e9
 

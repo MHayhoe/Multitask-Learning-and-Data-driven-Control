@@ -54,6 +54,7 @@ def setup(num_counties=1, start_day=0, train_days=10):
     else:
         num_counties = len(counties)
     # counties = ['NH-Strafford County','MI-Midland County','NE-Douglas County','PA-Philadelphia County']
+    counties = ['US', 'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'DC', 'FL', 'GA', 'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD', 'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ', 'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC', 'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY']
     num_dates, num_categories = np.shape(mobility_data[counties[0]])
     num_nyt_dates = np.shape(deaths_data[counties[0]])[0]
     num_age_categories = 3 # 0-24, 25-64, 65+
@@ -188,13 +189,13 @@ def plot_prediction(params, length):
         pickle.dump(optimized_params, handle, protocol=4)
 
     # Save data to a csv
-    Init.params_to_pd(params, time_dir)
+    # Init.params_to_pd(params, time_dir)
 
     consts = deepcopy(shared.consts)
     consts['T'] = length
     num_counties = len(shared.consts['n'])
-    num_compartments = 2
-    num_real_compartments = 2
+    num_compartments = 1
+    num_real_compartments = 1
     plot_split = int(np.ceil(np.sqrt(num_counties)))
 
     X = Init.get_real_data(length)
@@ -202,7 +203,7 @@ def plot_prediction(params, length):
 
     X_est = []
     for c in range(num_counties):
-        X_est.append(make_data(params[c], consts, counties=[c]))
+        X_est.append(make_data(params[c], consts, counties=[c], return_all=False))
     est_X = np.reshape(X_est, (num_counties*num_compartments, length))
     # conf_intervals = confidence_intervals(params, length)
 
@@ -271,15 +272,15 @@ def confidence_intervals(params, validation_days, num_trials=100, confidence=0.9
 if __name__ == '__main__':
     # Define all values
     shared.real_data = True
-    num_counties = -1  # use all counties
+    num_counties = 52  # use all counties
     start_day = 53
-    train_days = 60
+    train_days = 30
     validation_days = train_days + 10
-    num_batches = 25
-    num_trials = 8
+    num_batches = 5
+    num_trials = 16
 
     setup(num_counties=num_counties, start_day=start_day, train_days=train_days)
 
-    optimized_params = optimize_sgd(num_epochs=1000, num_batches=num_batches, num_trials=num_trials, step_size=0.01)
+    optimized_params = optimize_sgd(num_epochs=3000, num_batches=num_batches, num_trials=num_trials, step_size=0.01)
     print(optimized_params)
     plot_prediction(optimized_params, validation_days)

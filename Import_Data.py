@@ -26,7 +26,7 @@ def import_population_data(filename):
 # Imports data from Google's Global Mobility Report. Data starts on Feb 15, 2020.
 def import_mobility_data(filename, country='US'):
     # Read in the data
-    df = pd.read_csv(filename, encoding="ISO-8859-1")
+    df = pd.read_csv(filename, encoding="ISO-8859-1", low_memory=False)
 
     # Only keep data for the required country
     country_filter = df['country_region_code'] == country
@@ -93,20 +93,29 @@ def import_mobility_data(filename, country='US'):
     }
 
     # Combine State and County information
-    has_sub_region = pd.isna(df['sub_region_1'])
-    has_sub_region = [not x for x in has_sub_region]
-    df = df[has_sub_region]
-    df['sub_region_1'] = df['sub_region_1'].apply(lambda x: us_state_abbrev[x])
-    df['county'] = df['sub_region_1'] + '-' + df['sub_region_2']
+    national_level = pd.isna(df['sub_region_1'])        # This is at the national level
+    has_state = [not x for x in national_level]         # These have state affiliations
+    no_county = pd.isna(df['sub_region_2'])             # Has no county affiliation
+    state_level = np.logical_and(no_county, has_state)  # At the state level (no county, not national)
+    county_level = [not x for x in no_county]
+    # Turn state names into abbreviations
+    df['sub_region_1'][has_state] = df['sub_region_1'][has_state].apply(lambda x: us_state_abbrev[x])
+
+    # For national, use the country name
+    df.loc[national_level, 'region'] = country
+    # For states, just use state name
+    df.loc[state_level, 'region'] = df['sub_region_1']
+    # For counties, concatenate state and county name
+    df.loc[county_level, 'region'] = df['sub_region_1'] + '-' + df['sub_region_2']
     df.drop(['country_region_code', 'country_region', 'sub_region_1', 'sub_region_2'],axis=1)
 
     # Only keep data points with proper county, i.e., not country-level
-    has_county = pd.isna(df['county'])
-    has_county = [not x for x in has_county]
-    df = df[has_county]
+    # has_county = pd.isna(df['county'])
+    # has_county = [not x for x in has_county]
+    # df = df[has_county]
 
     # Find all unique counties and dates
-    counties = df.county.unique()
+    regions = df.region.unique()
     dates = df.date.unique()
 
     # For interpolating between nan values
@@ -117,25 +126,24 @@ def import_mobility_data(filename, country='US'):
 
     data = {}
 
-    for c in counties:
+    for c in regions:
         # Make a data frame just for this county
-        this_county = df['county'] == c
-        df_county = df[this_county]
+        df_region = df[df['region'] == c]
 
         # Find missing dates and add NaNs
-        county_dates = df_county.date.unique()
-        missing_dates = np.setdiff1d(dates, county_dates)
-        new_data = [{'county': c, 'date': d} for d in missing_dates]
-        df_county = df_county.append(new_data,ignore_index=True)
-        df_county.sort_values(by='date')
+        region_dates = df_region.date.unique()
+        missing_dates = np.setdiff1d(dates, region_dates)
+        new_data = [{'region': c, 'date': d} for d in missing_dates]
+        df_region = df_region.append(new_data,ignore_index=True)
+        df_region.sort_values(by='date')
 
-        df_county = df_county.filter(items=['retail_and_recreation_percent_change_from_baseline',
+        df_region = df_region.filter(items=['retail_and_recreation_percent_change_from_baseline',
                                             'grocery_and_pharmacy_percent_change_from_baseline',
                                             'parks_percent_change_from_baseline',
                                             'transit_stations_percent_change_from_baseline',
                                             'workplaces_percent_change_from_baseline',
                                             'residential_percent_change_from_baseline'])
-        mob_array = df_county.to_numpy()
+        mob_array = df_region.to_numpy()
 
         # Smooth the data with a Gaussian kernel - deals with NaN values
         for cat_ind in range(6):
@@ -157,9 +165,9 @@ def import_data(mobility_name, country='US'):
     # Note that land_data and pop_data have identical key sets
     mob_keys = set(mob_data.keys())
     sg_keys = set(age_data.keys())
-    counties_keys = sg_keys & mob_keys
-    extra_sg = sg_keys.difference(counties_keys)
-    extra_mob = mob_keys.difference(counties_keys)
+    regions_keys = sg_keys & mob_keys
+    extra_sg = sg_keys.difference(regions_keys)
+    extra_mob = mob_keys.difference(regions_keys)
 
     for k in extra_sg:
         del land_data[k]
@@ -179,17 +187,31 @@ def import_data(mobility_name, country='US'):
 # Also imports NYT data on case and death counts, starting from January 21, 2020.
 def import_safegraph_data():
     # Read in the data, and set leading zeros
-    df = pd.read_csv('Data/cbg_fips_codes.csv', encoding="ISO-8859-1")
+    df = pd.read_csv('Data/cbg_fips_codes.csv', encoding="ISO-8859-1", low_memory=False)
     df['fips'] = df['state_fips'].apply('{0:0>2}'.format) + df['county_fips'].apply('{0:0>3}'.format)
 
-    # Get the counties
-    df['county'] = df['state'] + '-' + df['county']
+    # Get the regions
+    df['region'] = df['state'] + '-' + df['county']
 
-    # Drop unnecessary columns
-    df = df.filter(items=['county','fips'])
+    # Add rows for the states and the national level
+    states = df.state.unique()
+    df_state = pd.DataFrame(np.hstack((states,'US')), columns=['region'])
+    # Set national FIPS code
+    df_state.loc[df_state['region'] == 'US', 'fips'] = ''
+    # Set state FIPS codes
+    last_ind = 0
+    for s in states:
+        for i in range(last_ind,len(df)):
+            if df.state.iloc[i] == s:
+                last_ind = i
+                df_state.loc[df_state['region'] == s, 'fips'] = df.fips.iloc[i][0:2]
+                break
+
+    # Append the state and national rows to the dataframe, and drop unnecessary columns
+    df = df.append(df_state,ignore_index=True).filter(items=['region','fips'])
 
     # Land area data
-    df_land = pd.read_csv('Data/cbg_geographic_data.csv', encoding="ISO-8859-1")
+    df_land = pd.read_csv('Data/cbg_geographic_data.csv', encoding="ISO-8859-1", low_memory=False)
     df_land['census_block_group'] = df_land['census_block_group'].apply('{0:0>12}'.format)
     land_data = {}
 
@@ -201,13 +223,13 @@ def import_safegraph_data():
     #                   60-61, 62-64, 65-66, 67-69, 70-74, 75-79, 80-84, >85.
 
     # Age data
-    df_age = pd.read_csv('Data/cbg_b01.csv', encoding="ISO-8859-1")
+    df_age = pd.read_csv('Data/cbg_b01.csv', encoding="ISO-8859-1", low_memory=False)
     df_age['census_block_group'] = df_age['census_block_group'].apply('{0:0>12}'.format)
     df_age = df_age.filter(items=['census_block_group']+age_fields)
     age_data = {}
 
     # Death and case counts (infected people) data
-    df_nyt = pd.read_csv('Data/nytimes_infections.csv', encoding="ISO-8859-1")
+    df_nyt = pd.read_csv('Data/nytimes_infections.csv', encoding="ISO-8859-1", low_memory=False)
     df_nyt['countyFIPS'] = df_nyt['countyFIPS'].apply('{0:0>5}'.format)
     num_nyt_dates = int((len(df_nyt.columns) - 1) / 2)
     df_cases = df_nyt.iloc[:,:num_nyt_dates+1]
@@ -215,28 +237,32 @@ def import_safegraph_data():
     death_data = {}
     case_data = {}
 
-    # Aggregate the land area, age distribution data, deaths, and case counts by county
+    # Aggregate the land area, age distribution data, deaths, and case counts by region
     for index, row in df.iterrows():
-        county = row['county']
+        region = row['region']
         fips = row['fips']
 
-        # Land area data - aggregate CBG to county
+        # Land area data - aggregate CBG to region
         filt = df_land['census_block_group'].str.startswith(fips)
         df_fips = df_land[filt]
         area = df_fips['amount_land'].sum() / 1e6  # Convert m^2 to km^2
-        land_data[county] = area
+        land_data[region] = area
 
-        # Age data - aggregate CBG to county
+        # Age data - aggregate CBG to region
         filt = df_age['census_block_group'].str.startswith(fips)
         df_fips = df_age[filt].drop('census_block_group',axis=1)
         ages = np.sum(df_fips.to_numpy(), axis=1)
-        age_data[county] = ages
+        age_data[region] = ages
 
         # Deaths and case counts
-        cases = df_cases[df_cases['countyFIPS'] == fips].to_numpy().T
-        deaths = df_deaths[df_deaths['countyFIPS'] == fips].to_numpy().T
-        case_data[county] = cases[1:]
-        death_data[county] = deaths[1:]
+        if len(fips) == 5:
+            cases = df_cases[df_cases['countyFIPS'] == fips].to_numpy().T
+            deaths = df_deaths[df_deaths['countyFIPS'] == fips].to_numpy().T
+        else:
+            cases = np.sum(df_cases[df_cases['countyFIPS'].str.startswith(fips)].to_numpy().T, axis=1)
+            deaths = np.sum(df_deaths[df_deaths['countyFIPS'].str.startswith(fips)].to_numpy().T, axis=1)
+        case_data[region] = cases[1:]
+        death_data[region] = deaths[1:]
 
     return land_data, age_data, death_data, case_data
 
