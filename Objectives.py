@@ -33,7 +33,7 @@ def prediction_loss_sgd(params, iteration=0, length=-1, pool=None):
     else:
         X_est = make_data(params, shared.consts, T=length, counties=counties)
 
-    return error_predict_loss(X, X_est, shared.consts['T'], counties=counties)
+    return error_predict_loss(X, X_est, length, counties=counties)
 
 
 # Returns the relevant parameters and constants for the given counties
@@ -64,7 +64,7 @@ def prediction_county(params,iter=0,county=0,length=-1):
     X = get_real_data(length, counties=[county])
     X_est = make_data(params, shared.consts, T=length, counties=[county])
 
-    return error_predict_loss(X, X_est, shared.consts['T'], counties=[county])
+    return error_predict_loss(X, X_est, length, counties=[county])
 
 
 # Calculate any penalties and add regularization

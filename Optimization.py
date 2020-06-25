@@ -14,9 +14,9 @@ from autograd.misc.optimizers import adam
 # Helpers
 import multiprocessing as mp
 from functools import partial
-from copy import copy
+from copy import deepcopy
 import matplotlib.pyplot as plt
-import time
+import pickle
 
 
 # Makes an initial guess for optimization parameters
@@ -39,18 +39,24 @@ def optimize_sgd(num_epochs=20, num_batches=1, num_trials=8, step_size=0.01):
 
     # Multiprocessing
     pool = mp.Pool(mp.cpu_count())
-    do_mp = partial(optimize_trial, consts=shared.consts,begin=shared.begin,num_epochs=num_epochs,step_size=step_size)
+    do_mp = partial(optimize_trial, consts=shared.consts,begin=shared.begin,num_epochs=num_epochs,step_size=step_size, show_plots=False)
     mp_params = pool.map(do_mp, range(num_trials))
     opt_params = {}
+
+    with open('mp_params.pickle','wb') as handle:
+        pickle.dump(mp_params, handle, protocol=4)
 
     # Unpack results for each county, returning parameters which give the lowest error
     for c in range(len(shared.consts['n'])):
         obj_vals = [prediction_county(p,county=c) for p in mp_params]
-        county_params = copy(mp_params[np.argmin(obj_vals)])
+        county_params = deepcopy(mp_params[np.argmin(obj_vals)])
         for k,v in county_params.items():
             if np.ndim(county_params[k]) >= 1:
                 county_params[k] = np.expand_dims(county_params[k][c],axis=0)
         opt_params[c] = county_params
+
+    with open('county_params.pickle','wb') as handle:
+        pickle.dump(opt_params, handle, protocol=4)
 
     return opt_params
 
@@ -99,7 +105,7 @@ def optimize_trial(trial, consts, begin, num_epochs, step_size, pool=None, show_
 
     # Calculate the error on the test data and return the optimized parameters
     obj_val = prediction_loss(opt_params)
-    print('Done batch {} with test loss {:.3e}.'.format(trial + 1, obj_val))
+    print('Done trial {} with test loss {:.3e}.'.format(trial, obj_val))
     return opt_params
 
 
@@ -153,7 +159,7 @@ def setup_plotting():
 def plot_trajectories(params, plot_params, batch, iteration):
     num_counties = len(shared.consts['n'])
     num_compartments = 4
-    num_real_compartments = 2
+    num_real_compartments = 1
     num_plots = 3
 
     X = Init.get_real_data(shared.consts['T'])

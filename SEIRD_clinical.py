@@ -23,8 +23,20 @@ def make_data(true_params, consts, T=-1, counties=[], return_all=False):
         T = params['T']
 
     # Parametric function we're using is sigmoid(w'*x + b)
-    if num_counties == 1:
-        rho = params['rho']
+    ##  Rho rates  ##
+    # E -> I
+    rho_EI = simple_function(params['rho_EI_coeffs']) * np.ones(num_counties)
+    # I -> R
+    rho_IR = simple_function(params['rho_IR_coeffs']) * np.ones(num_counties)
+    # delay = np.ceil(1/rho_EI + 1/rho_IR)
+
+    ##  Fatality ratios  ##
+    # Ratio of I -> D, vs I -> R
+    fatality_I = simple_function(params['fatality_I']) * np.ones(num_counties)
+
+    if len(params['ratio_E']) == 1:
+        n = params['n'][counties]
+        rho = params['rho'][counties]
         x_0 = params['c_0']
         ##  Beta rates  ##
         # I -> R
@@ -32,6 +44,7 @@ def make_data(true_params, consts, T=-1, counties=[], return_all=False):
         # E -> I
         beta_E = np.einsum('i,ij->ij', simple_function(params['ratio_E']), beta_I)
     else:
+        n = params['n'][counties]
         rho = params['rho'][counties]
         x_0 = params['c_0'][counties]
         ##  Beta rates  ##
@@ -40,16 +53,6 @@ def make_data(true_params, consts, T=-1, counties=[], return_all=False):
                               params['beta_I_bias'][counties])
         # E -> I
         beta_E = np.einsum('i,ij->ij', simple_function(params['ratio_E'][counties]), beta_I)
-
-    ##  Rho rates  ##
-    # E -> I
-    rho_EI = simple_function(params['rho_EI_coeffs']) * np.ones(num_counties)
-    # I -> R
-    rho_IR = simple_function(params['rho_IR_coeffs']) * np.ones(num_counties)
-
-    ##  Fatality ratios  ##
-    # Ratio of I -> D, vs I -> R
-    fatality_I = simple_function(params['fatality_I']) * np.ones(num_counties)
 
     # Define variables
     X_data = []
@@ -72,12 +75,17 @@ def make_data(true_params, consts, T=-1, counties=[], return_all=False):
             # Dead compartment
             D.append(D[-1] + fatality_I[i] * rho_IR[i] * I[-2])
         if return_all:
-            X_data.append(E)
-            X_data.append(I)
-            X_data.append(R)
-        X_data.append(D)
+            X_data.append(output(E, n[i]))
+            X_data.append(output(I, n[i]))
+            X_data.append(output(R, n[i]))
+        X_data.append(output(D, n[i]))
 
     return np.array(X_data)
+
+
+# Changes the categories for output. Makes them increase by increments of 1/n
+def output(x, n):
+    return x  # [np.ceil(x_i*n)/n for x_i in x]
 
 
 def make_data_parallel(params, consts, pool, T=-1, counties=[], return_all=False):

@@ -199,28 +199,28 @@ def plot_prediction(params, length):
     plot_split = int(np.ceil(np.sqrt(num_counties)))
 
     X = Init.get_real_data(length)
-    real_X = np.asarray(X)
+    real_X = np.asarray(X).T
 
     X_est = []
     for c in range(num_counties):
         X_est.append(make_data(params[c], consts, counties=[c], return_all=False))
-    est_X = np.reshape(X_est, (num_counties*num_compartments, length))
+    est_X = np.reshape(X_est, (num_counties*num_compartments, length)).T
     # conf_intervals = confidence_intervals(params, length)
 
     for i in range(num_counties):
         plt.subplot(plot_split, plot_split, i + 1)
         if shared.real_data:
-            plt.plot(real_X[i * num_real_compartments:(i + 1) * num_real_compartments, :].T)
+            plt.plot(real_X[:, i * num_real_compartments:(i + 1) * num_real_compartments])
         else:
-            plt.plot(real_X[i * num_compartments:(i + 1) * num_compartments, :].T)
-        plt.plot(est_X[i * num_compartments:(i + 1) * num_compartments, :].T, '--')
+            plt.plot(real_X[:, i * num_compartments:(i + 1) * num_compartments])
+        plt.plot(est_X[:, i * num_compartments:(i + 1) * num_compartments], '--')
         # plt.legend(['Exp.', 'Inf.', 'Hosp.', 'Rec.', 'Dead'])
         plt.title('{} ({:.0f})'.format(consts['county_names'][i], consts['n'][i]))
 
         fig = plt.figure()
         if shared.real_data:
-            plt.plot(real_X[i * num_real_compartments:(i + 1) * num_real_compartments, :].T)
-            plt.plot(est_X[i * num_compartments:(i + 1) * num_compartments, :].T, '--')
+            plt.plot(real_X[:, i * num_real_compartments:(i + 1) * num_real_compartments])
+            plt.plot(est_X[:, i * num_compartments:(i + 1) * num_compartments], '--')
             # plt.fill_between(range(shared.consts['T'], length), conf_intervals[i * num_compartments,0,shared.consts['T']:length],
             #                  conf_intervals[i * num_compartments,1,shared.consts['T']:length], facecolor='blue', alpha=0.3)
             # plt.fill_between(range(shared.consts['T'], length), conf_intervals[i * num_compartments + 1,0, shared.consts['T']:length],
@@ -228,8 +228,8 @@ def plot_prediction(params, length):
             plt.legend(['Cases','Deaths', 'Inf.', 'Dead'])
             # plt.legend(['Deaths', 'Exp.', 'Inf.', 'Rec.', 'Dead'])
         else:
-            plt.plot(real_X[i * num_compartments:(i + 1) * num_compartments, :].T)
-            plt.plot(est_X[i * num_compartments:(i + 1) * num_compartments, :].T, '--')
+            plt.plot(real_X[:, i * num_compartments:(i + 1) * num_compartments])
+            plt.plot(est_X[:, i * num_compartments:(i + 1) * num_compartments], '--')
             # plt.legend(['Exp.', 'Inf.', 'Hosp.', 'Rec.', 'Dead'])
             plt.legend(['Exp.', 'Inf.', 'Rec.', 'Dead'])
         plt.title('{} ({:.0f})'.format(consts['county_names'][i], consts['n'][i]))
@@ -276,7 +276,7 @@ if __name__ == '__main__':
     start_day = 53
     train_days = 30
     validation_days = train_days + 10
-    num_batches = 5
+    num_batches = 1
     num_trials = 16
 
     setup(num_counties=num_counties, start_day=start_day, train_days=train_days)
