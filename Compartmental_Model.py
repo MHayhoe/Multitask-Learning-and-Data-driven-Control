@@ -273,10 +273,10 @@ if __name__ == '__main__':
     # Define all values
     shared.real_data = True
     num_counties = 52  # use all counties
-    start_day = 53
-    train_days = 30
-    validation_days = train_days + 10
-    num_batches = 1
+    train_days = 60
+    validation_days = train_days + 20
+    start_day = 113 - train_days - validation_days
+    num_batches = 5
     num_trials = 16
 
     setup(num_counties=num_counties, start_day=start_day, train_days=train_days)

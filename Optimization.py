@@ -43,9 +43,6 @@ def optimize_sgd(num_epochs=20, num_batches=1, num_trials=8, step_size=0.01):
     mp_params = pool.map(do_mp, range(num_trials))
     opt_params = {}
 
-    with open('mp_params.pickle','wb') as handle:
-        pickle.dump(mp_params, handle, protocol=4)
-
     # Unpack results for each county, returning parameters which give the lowest error
     for c in range(len(shared.consts['n'])):
         obj_vals = [prediction_county(p,county=c) for p in mp_params]
@@ -54,9 +51,6 @@ def optimize_sgd(num_epochs=20, num_batches=1, num_trials=8, step_size=0.01):
             if np.ndim(county_params[k]) >= 1:
                 county_params[k] = np.expand_dims(county_params[k][c],axis=0)
         opt_params[c] = county_params
-
-    with open('county_params.pickle','wb') as handle:
-        pickle.dump(opt_params, handle, protocol=4)
 
     return opt_params
 
