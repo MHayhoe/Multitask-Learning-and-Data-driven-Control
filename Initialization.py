@@ -9,10 +9,21 @@ import pandas as pd
 from datetime import datetime, timedelta
 from os.path import exists
 from os import mkdir
+from astropy.convolution import convolve, Box1DKernel
 
 # For beta parameters
 beta_min = -3
 beta_max = 3
+
+
+# Smooths out a signal by applying mean filtering
+def smooth(x, filter_width=2):
+    x = np.squeeze(x)
+    smooth_x = np.zeros(len(x))
+    for ii in range(len(x)):
+        smooth_x[ii] = np.mean(x[max(0,ii-filter_width):ii+1])
+    return smooth_x
+    # return convolve(x, Box1DKernel(width=filter_width))
 
 
 # "Subtracts" two ranges, i.e., finds the range corresponding to the larger one with the smaller removed.
@@ -29,9 +40,9 @@ def train_fold(test_fold):
 # The training fold is the complement of the test fold.
 def get_real_data_fold(test_fold,train=True):
     if train:
-        fold = [t + shared.begin['cases'] for t in train_fold(test_fold)]
+        fold = [t + shared.consts['begin_cases'] for t in train_fold(test_fold)]
     else:
-        fold = [t + shared.begin['cases'] for t in test_fold]
+        fold = [t + shared.consts['begin_cases'] for t in test_fold]
     cases = shared.consts['case_data'][:,fold]
     deaths = shared.consts['death_data'][:,fold]
     # X = deaths
@@ -47,11 +58,11 @@ def get_real_data(length, counties=[]):
         if length <= 0:
             length = shared.consts['T']
         if counties:
-            # cases = shared.consts['case_data'][counties,shared.begin['cases']:(shared.begin['cases'] + length)]
-            deaths = shared.consts['death_data'][counties,shared.begin['cases']:(shared.begin['cases'] + length)]
+            # cases = shared.consts['case_data'][counties,shared.consts['begin_cases']:(shared.consts['begin_cases'] + length)]
+            deaths = shared.consts['death_data'][counties,shared.consts['begin_cases']:(shared.consts['begin_cases'] + length)]
         else:
-            # cases = shared.consts['case_data'][:,shared.begin['cases']:(shared.begin['cases'] + length)]
-            deaths = shared.consts['death_data'][:,shared.begin['cases']:(shared.begin['cases'] + length)]
+            # cases = shared.consts['case_data'][:,shared.consts['begin_cases']:(shared.consts['begin_cases'] + length)]
+            deaths = shared.consts['death_data'][:,shared.consts['begin_cases']:(shared.consts['begin_cases'] + length)]
         # X = np.empty((cases.shape[0]+deaths.shape[0], cases.shape[-1]))
         # X[::2,:] = cases
         # X[1::2,:] = deaths
@@ -66,9 +77,9 @@ def get_real_data_county(length, counties):
     if shared.real_data:
         if length <= 0:
             length = shared.consts['T']
-        # X = shared.consts['death_data'][:,shared.begin['cases']:(shared.begin['cases'] + length)]
-        cases = shared.consts['case_data'][counties,shared.begin['cases']:(shared.begin['cases'] + length)]
-        deaths = shared.consts['death_data'][counties,shared.begin['cases']:(shared.begin['cases'] + length)]
+        # X = shared.consts['death_data'][:,shared.consts['begin_cases']:(shared.consts['begin_cases'] + length)]
+        cases = shared.consts['case_data'][counties,shared.consts['begin_cases']:(shared.consts['begin_cases'] + length)]
+        deaths = shared.consts['death_data'][counties,shared.consts['begin_cases']:(shared.consts['begin_cases'] + length)]
         X = np.empty((cases.shape[0]+deaths.shape[0], cases.shape[1]))
         X[::2,:] = cases
         X[1::2,:] = deaths
@@ -97,11 +108,10 @@ def initial_condition(county=-1):
     n = shared.consts['n']
     if county == -1:
         num_counties = len(n)
-        return np.array([[np.log(rd.randint(1,10) / n[i]), np.log(1 / n[i]), np.log(1 / n[i]), np.log(1 / n[i])]
-                         for i in range(num_counties)])
+        return np.squeeze([[np.log(rd.randint(1,10) / n[i]), np.log(1 / n[i]), np.log(1 / n[i])]
+                           for i in range(num_counties)])
     else:
-        return np.array([np.log(rd.randint(1,10) / n[county]), np.log(1 / n[county]), np.log(1 / n[county]),
-                         np.log(1 / n[county])])
+        return np.array([np.log(rd.randint(1,10) / n[county]), np.log(1 / n[county]), np.log(1 / n[county])])
 
 
 # For initializing a beta bias parameter
@@ -145,7 +155,7 @@ def params_to_pd(params, dir):
                'beta_I_transit_stations', 'beta_I_workplaces', 'beta_I_residential']
     df_params = pd.DataFrame(columns=columns)
 
-    date_list = pd.date_range(datetime(2020,1,21) + timedelta(days=shared.begin['cases']), periods=shared.consts['T'])
+    date_list = pd.date_range(datetime(2020,1,21) + timedelta(days=shared.consts['begin_cases']), periods=shared.consts['T'])
     date_columns = ['state', 'county'] + ['cases-{}-{:0>2}-{:0>2}'.format(d.year,d.month,d.day) for d in date_list] +\
                    ['deaths-{}-{:0>2}-{:0>2}'.format(d.year, d.month, d.day) for d in date_list]
     df_data = pd.DataFrame(columns=date_columns)

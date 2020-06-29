@@ -28,8 +28,8 @@ import random as rd
 def setup(num_counties=1, start_day=0, train_days=10):
     # Set miscellaneous parameters
     gamma_death = 5  # treat loss for death prediction as gamma_death times more important
-    shared.begin['mob'] = start_day
-    shared.begin['cases'] = 25 + shared.begin['mob']
+    shared.consts['begin_mob'] = start_day
+    shared.consts['begin_cases'] = 25 + shared.consts['begin_mob']
 
     # Import mobility data
     if exists('Mobility_US.pickle') and exists('Age_Distribution_US.pickle') and exists('Deaths_US.pickle') \
@@ -54,7 +54,8 @@ def setup(num_counties=1, start_day=0, train_days=10):
     else:
         num_counties = len(counties)
     # counties = ['NH-Strafford County','MI-Midland County','NE-Douglas County','PA-Philadelphia County']
-    counties = ['US', 'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'DC', 'FL', 'GA', 'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD', 'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ', 'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC', 'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY']
+    # counties = ['US', 'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'DC', 'FL', 'GA', 'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD', 'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ', 'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC', 'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY']
+    counties = ['US', 'PA', 'SD', 'CO']
     num_dates, num_categories = np.shape(mobility_data[counties[0]])
     num_nyt_dates = np.shape(deaths_data[counties[0]])[0]
     num_age_categories = 3 # 0-24, 25-64, 65+
@@ -64,7 +65,7 @@ def setup(num_counties=1, start_day=0, train_days=10):
 
     # Mobility categories: Retail & recreation, Grocery & pharmacy, Parks, Transit stations, Workplaces, Residential
     county_names = []
-    mob_data = np.zeros((num_counties, num_dates - shared.begin['mob'], num_categories))
+    mob_data = np.zeros((num_counties, num_dates - shared.consts['begin_mob'], num_categories))
     n = np.zeros(num_counties)
     age_data = np.zeros((num_counties, num_age_categories))
     death_data = np.zeros((num_counties, num_nyt_dates))
@@ -107,17 +108,17 @@ def setup(num_counties=1, start_day=0, train_days=10):
         # Ages 65+
         age_data[i, 2] = (np.sum(age_distribution_data[c][17:23]) + np.sum(age_distribution_data[c][40:46])) / n[i]
         # Mobility data, via Google's Global Mobility Report
-        mob_data[i, :, :] = mobility_data[c][shared.begin['mob']:,:] / 100  # Standardize to be in [-1,1]
+        mob_data[i, :, :] = mobility_data[c][shared.consts['begin_mob']:,:] / 100  # Standardize to be in [-1,1]
         # Deaths from NYT. If we have no data, fill zeros
         if (deaths_data[c] == 0).all():
             death_data[i, :] = np.zeros(num_nyt_dates)
         else:
-            death_data[i, :] = np.squeeze(deaths_data[c] / n[i])  # Standardize to be in [0,1]
+            death_data[i, :] = Init.smooth(deaths_data[c] / n[i], filter_width=7)  # Standardize to be in [0,1]
         # Case counts from NYT. If we have no data, fill zeros
         if (case_count_data[c] == 0).all():
             case_data[i, :] = np.zeros(num_nyt_dates)
         else:
-            case_data[i, :] = np.squeeze(case_count_data[c] / n[i])  # Standardize to be in [0,1]
+            case_data[i, :] = Init.smooth(case_count_data[c] / n[i], filter_width=7)  # Standardize to be in [0,1]
 
         # Initialize parameters
         rho[i] = Init.calculate_rho(n[i], land_data[c])
@@ -272,15 +273,15 @@ def confidence_intervals(params, validation_days, num_trials=100, confidence=0.9
 if __name__ == '__main__':
     # Define all values
     shared.real_data = True
-    num_counties = 52  # use all counties
-    train_days = 60
-    validation_days = train_days + 20
-    start_day = 113 - train_days - validation_days
-    num_batches = 5
+    num_counties = 4  # use all counties
+    train_days = 30
+    validation_days = train_days + 10 
+    start_day = 113 - validation_days
+    num_batches = 1
     num_trials = 16
 
     setup(num_counties=num_counties, start_day=start_day, train_days=train_days)
 
-    optimized_params = optimize_sgd(num_epochs=3000, num_batches=num_batches, num_trials=num_trials, step_size=0.01)
+    optimized_params = optimize_sgd(num_epochs=1500, num_batches=num_batches, num_trials=num_trials, step_size=0.01, show_plots=True)
     print(optimized_params)
     plot_prediction(optimized_params, validation_days)

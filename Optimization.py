@@ -32,16 +32,19 @@ def make_guess(batch_num=1):
 
 
 # Run the optimization by splitting the counties into batches across epochs, and only updating one batch per step
-def optimize_sgd(num_epochs=20, num_batches=1, num_trials=8, step_size=0.01):
+def optimize_sgd(num_epochs=20, num_batches=1, num_trials=8, step_size=0.01, show_plots=False):
     # If number of batches is too large, make it the number of counties
     num_batches = min(num_batches, len(shared.consts['n']))
     shared.consts['num_batches'] = num_batches
 
     # Multiprocessing
     pool = mp.Pool(mp.cpu_count())
-    do_mp = partial(optimize_trial, consts=shared.consts,begin=shared.begin,num_epochs=num_epochs,step_size=step_size, show_plots=False)
+    do_mp = partial(optimize_trial, consts=shared.consts,num_epochs=num_epochs,step_size=step_size, show_plots=show_plots)
     mp_params = pool.map(do_mp, range(num_trials))
     opt_params = {}
+
+    with open('mp_params.pickle','wb') as handle:
+        pickle.dump(mp_params, handle)
 
     # Unpack results for each county, returning parameters which give the lowest error
     for c in range(len(shared.consts['n'])):
@@ -64,13 +67,13 @@ def optimize_parallel_counties(num_epochs=20, num_batches=1, num_trials=8, step_
     pool = mp.Pool(mp.cpu_count())
     mp_params = []
     for i in range(num_trials):
-        mp_params.append(optimize_trial(i, shared.consts, shared.begin, num_epochs, step_size, pool))
+        mp_params.append(optimize_trial(i, shared.consts, num_epochs, step_size, pool))
     opt_params = {}
 
     # Unpack results for each county, returning parameters which give the lowest error
     for c in range(len(shared.consts['n'])):
         obj_vals = [prediction_county(p,county=c) for p in mp_params]
-        county_params = copy(mp_params[np.argmin(obj_vals)])
+        county_params = deepcopy(mp_params[np.argmin(obj_vals)])
         for k,v in county_params.items():
             if np.ndim(county_params[k]) >= 1:
                 county_params[k] = np.expand_dims(county_params[k][c],axis=0)
@@ -80,10 +83,9 @@ def optimize_parallel_counties(num_epochs=20, num_batches=1, num_trials=8, step_
 
 
 # Picks a random initial starting point for a trial, and runs the optimization
-def optimize_trial(trial, consts, begin, num_epochs, step_size, pool=None, show_plots=False):
+def optimize_trial(trial, consts, num_epochs, step_size, pool=None, show_plots=False):
     grad_predict = grad(partial(prediction_loss_sgd, pool=pool))
     shared.consts = consts
-    shared.begin = begin
     guess = make_guess()
     shared.batches = create_batches(range(len(shared.consts['n'])), shared.consts['num_batches'])
 
@@ -242,9 +244,8 @@ def optimize(num_iters=300, step_size=0.01, num_trials=1, validation_length=30, 
 
     # Run the batches
     for b in range(num_trials):
-        opt_par, obj_val = optimize_batch(b, true_params=shared.true_params, consts=shared.consts, begin=shared.begin,
-                                          num_iters=num_iters, step_size=step_size, validation_length=validation_length,
-                                          num_folds=num_folds)
+        opt_par, obj_val = optimize_batch(b, true_params=shared.true_params, consts=shared.consts, num_iters=num_iters,
+                                          step_size=step_size, validation_length=validation_length, num_folds=num_folds)
         opt_params.append(opt_par)
         obj_vals.append(obj_val)
 
@@ -257,8 +258,8 @@ def optimize(num_iters=300, step_size=0.01, num_trials=1, validation_length=30, 
 def optimize_parallel(num_iters=300, step_size=0.01, num_trials=1, validation_length=30, num_folds=4):
     # Multiprocessing
     pool = mp.Pool(mp.cpu_count())
-    do_mp = partial(optimize_batch, true_params=shared.true_params, consts=shared.consts, begin=shared.begin,
-                    num_iters=num_iters, step_size=step_size, validation_length=validation_length, num_folds=num_folds)
+    do_mp = partial(optimize_batch, true_params=shared.true_params, consts=shared.consts, num_iters=num_iters,
+                    step_size=step_size, validation_length=validation_length, num_folds=num_folds)
     mp_result = pool.map(do_mp, range(num_trials))
 
     # Unpack objective values and parameter values
@@ -270,11 +271,10 @@ def optimize_parallel(num_iters=300, step_size=0.01, num_trials=1, validation_le
 
 
 # Picks a random initial starting point for a batch, and runs the optimization
-def optimize_batch(batch, true_params, consts, begin, num_iters, step_size, validation_length, num_folds):
+def optimize_batch(batch, true_params, consts, num_iters, step_size, validation_length, num_folds):
     grad_predict = grad(prediction_loss)
     shared.true_params = true_params
     shared.consts = consts
-    shared.begin = begin
     guess = make_guess()
 
     # For plotting

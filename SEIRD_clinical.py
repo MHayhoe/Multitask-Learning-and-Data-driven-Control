@@ -34,9 +34,12 @@ def make_data(true_params, consts, T=-1, counties=[], return_all=False):
     # Ratio of I -> D, vs I -> R
     fatality_I = simple_function(params['fatality_I']) * np.ones(num_counties)
 
+    # Set parameters
+    n = params['n'][counties]
+    rho = params['rho'][counties]
+    initial_deaths = params['death_data'][counties, params['begin_cases']]
+
     if len(params['ratio_E']) == 1:
-        n = params['n'][counties]
-        rho = params['rho'][counties]
         x_0 = params['c_0']
         ##  Beta rates  ##
         # I -> R
@@ -44,8 +47,6 @@ def make_data(true_params, consts, T=-1, counties=[], return_all=False):
         # E -> I
         beta_E = np.einsum('i,ij->ij', simple_function(params['ratio_E']), beta_I)
     else:
-        n = params['n'][counties]
-        rho = params['rho'][counties]
         x_0 = params['c_0'][counties]
         ##  Beta rates  ##
         # I -> R
@@ -62,7 +63,7 @@ def make_data(true_params, consts, T=-1, counties=[], return_all=False):
         E = [np.exp(x_0[i][0])]
         I = [np.exp(x_0[i][1])]
         R = [np.exp(x_0[i][2])]
-        D = [np.exp(x_0[i][3])]
+        D = [initial_deaths[i]]
         for t in range(T - 1):
             # Susceptible compartment
             S = 1 - E[-1] - I[-1] - R[-1] - D[-1]

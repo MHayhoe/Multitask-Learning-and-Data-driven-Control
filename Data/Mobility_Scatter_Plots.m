@@ -1,8 +1,8 @@
-county_fips = 36061;
-county_name = 'New York County';
+region = 'US-NY';
+region_name = 'New York';
 
 T = readtable('Global_Mobility_Report.csv');
-inds = T.census_fips_code == county_fips;
+inds = strcmp(T.iso_3166_2_code, region);
 mob_data = table2array(T(inds,8:13))';
 
 cmap = jet(size(mob_data,2));
@@ -14,8 +14,9 @@ for ii = 1:6
             histogram(mob_data(ii,:),30)
         else
             subplot(6,6,(ii-1)*6+jj);
-            scatter(mob_data(ii,:), mob_data(jj,:), 10, cmap, 'filled')
+            %scatter(mob_data(ii,:), mob_data(jj,:), 10, cmap, 'filled')
+            plot(mob_data(ii,:), mob_data(jj,:), 'LineColor', cmap)
         end
     end
 end
-sgtitle([county_name, ' Mobility Patterns'])
+sgtitle([region_name, ' Mobility Patterns'])
