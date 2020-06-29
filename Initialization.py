@@ -12,8 +12,8 @@ from os import mkdir
 from astropy.convolution import convolve, Box1DKernel
 
 # For beta parameters
-beta_min = -3
-beta_max = 3
+beta_min = -1
+beta_max = 1
 
 
 # Smooths out a signal by applying mean filtering
@@ -117,7 +117,7 @@ def initial_condition(county=-1):
 # For initializing a beta bias parameter
 def initialize_beta_bias(county=-1):
     if county == -1:
-        return np.array([rd.random()*(beta_max - beta_min) + beta_min for i in range(len(shared.consts['n']))])
+        return np.array([rd.random()*(beta_max - beta_min) + beta_min - 2 for i in range(len(shared.consts['n']))])
     else:
         return np.array([rd.random() * (beta_max - beta_min) + beta_min])
 

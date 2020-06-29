@@ -124,7 +124,7 @@ def create_batches(x, num_batches):
 
 # Callback function for optimization
 def print_performance(params, iteration, gradient, trial, show_plots):
-    if iteration % (shared.consts['num_batches'] * 100) == 0:
+    if iteration % (shared.consts['num_batches'] * 10) == 0:
         print('Trial {}: epoch {}, loss {:.3e}'.format(trial, iteration // shared.consts['num_batches'], prediction_loss(params)))
         # print(gradient)
         if show_plots:
@@ -227,8 +227,8 @@ def plot_trajectories(params, plot_params, batch, iteration):
             lines[j].set_linewidth(weights[j])
         ax2 = ax1.twinx()
         ax2.plot(beta_I, '--')
-        ax1.yaxis.set_ticklabels([])
-        ax2.yaxis.set_ticklabels([])
+        #ax1.yaxis.set_ticklabels([])
+        #ax2.yaxis.set_ticklabels([])
 
         # Draw the plot
         plt.draw()

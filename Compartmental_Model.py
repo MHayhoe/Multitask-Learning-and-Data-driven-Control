@@ -54,8 +54,8 @@ def setup(num_counties=1, start_day=0, train_days=10):
     else:
         num_counties = len(counties)
     # counties = ['NH-Strafford County','MI-Midland County','NE-Douglas County','PA-Philadelphia County']
-    # counties = ['US', 'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'DC', 'FL', 'GA', 'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD', 'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ', 'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC', 'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY']
-    counties = ['US', 'PA', 'SD', 'CO']
+    counties = ['US', 'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'DC', 'FL', 'GA', 'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD', 'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ', 'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC', 'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY']
+    # counties = ['US', 'PA', 'SD', 'CO']
     num_dates, num_categories = np.shape(mobility_data[counties[0]])
     num_nyt_dates = np.shape(deaths_data[counties[0]])[0]
     num_age_categories = 3 # 0-24, 25-64, 65+
@@ -273,15 +273,16 @@ def confidence_intervals(params, validation_days, num_trials=100, confidence=0.9
 if __name__ == '__main__':
     # Define all values
     shared.real_data = True
-    num_counties = 4  # use all counties
+    num_counties = 52  # use all counties
     train_days = 30
-    validation_days = train_days + 10 
+    validation_days = train_days + 10
     start_day = 113 - validation_days
-    num_batches = 1
+    num_batches = 10
     num_trials = 16
 
     setup(num_counties=num_counties, start_day=start_day, train_days=train_days)
 
-    optimized_params = optimize_sgd(num_epochs=1500, num_batches=num_batches, num_trials=num_trials, step_size=0.01, show_plots=True)
+    optimized_params = optimize_sgd(num_epochs=1500, num_batches=num_batches, num_trials=num_trials, step_size=0.01,
+                                    show_plots=False)
     print(optimized_params)
     plot_prediction(optimized_params, validation_days)
