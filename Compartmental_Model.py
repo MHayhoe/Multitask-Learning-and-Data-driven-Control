@@ -30,6 +30,8 @@ def setup(num_counties=1, start_day=0, train_days=10):
     gamma_death = 5  # treat loss for death prediction as gamma_death times more important
     shared.consts['begin_mob'] = start_day
     shared.consts['begin_cases'] = 25 + shared.consts['begin_mob']
+    num_categories = 2
+    shared.consts['num_mob_components'] = num_categories
 
     # Import mobility data
     if exists('Mobility_US.pickle') and exists('Age_Distribution_US.pickle') and exists('Deaths_US.pickle') \
@@ -56,7 +58,7 @@ def setup(num_counties=1, start_day=0, train_days=10):
     # counties = ['NH-Strafford County','MI-Midland County','NE-Douglas County','PA-Philadelphia County']
     counties = ['US', 'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'DC', 'FL', 'GA', 'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD', 'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ', 'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC', 'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY']
     # counties = ['US', 'PA', 'SD', 'CO']
-    num_dates, num_categories = np.shape(mobility_data[counties[0]])
+    num_dates = np.shape(mobility_data[counties[0]])[0]
     num_nyt_dates = np.shape(deaths_data[counties[0]])[0]
     num_age_categories = 3 # 0-24, 25-64, 65+
     # Age distribution: <5, 5-9, 10-14, 15-17, 18-19, 20, 21, 22-24, 25-29, 30-34, 35-39, 40-44, 45-49, 50-54, 55-59,
@@ -108,7 +110,7 @@ def setup(num_counties=1, start_day=0, train_days=10):
         # Ages 65+
         age_data[i, 2] = (np.sum(age_distribution_data[c][17:23]) + np.sum(age_distribution_data[c][40:46])) / n[i]
         # Mobility data, via Google's Global Mobility Report
-        mob_data[i, :, :] = mobility_data[c][shared.consts['begin_mob']:,:] / 100  # Standardize to be in [-1,1]
+        mob_data[i, :, :] = Init.pca_reduce(mobility_data[c][shared.consts['begin_mob']:,:] / 100)  # Standardize to be in [-1,1]
         # Deaths from NYT. If we have no data, fill zeros
         if (deaths_data[c] == 0).all():
             death_data[i, :] = np.zeros(num_nyt_dates)

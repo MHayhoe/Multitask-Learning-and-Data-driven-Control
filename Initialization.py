@@ -16,6 +16,14 @@ beta_min = -1
 beta_max = 1
 
 
+# Performs dimensionality reduction via PCA
+def pca_reduce(mob_data):
+    first_diff = mob_data[1:] - mob_data[:-1]
+    L, W = np.linalg.eig(np.cov(first_diff.T))
+    W = W[:,np.argsort(L)[-shared.consts['num_mob_components']:]]
+    return np.vstack((W.T@mob_data[0,:], W.T@mob_data[0,:] + np.cumsum(first_diff@W,0)))
+
+
 # Smooths out a signal by applying mean filtering
 def smooth(x, filter_width=2):
     x = np.squeeze(x)
@@ -126,9 +134,10 @@ def initialize_beta_bias(county=-1):
 def initialize_beta_coeffs(county=-1):
     if county == -1:
         num_counties = len(shared.consts['n'])
-        return np.array([np.ones(6)*rd.random()*(beta_max - beta_min) + beta_min for i in range(num_counties)])
+        return np.array([np.ones(shared.consts['num_mob_components'])*rd.random()*(beta_max - beta_min) + beta_min
+                         for _ in range(num_counties)])
     else:
-        return np.array([np.ones(6) * rd.random() * (beta_max - beta_min) + beta_min])
+        return np.array([np.ones(shared.consts['num_mob_components']) * rd.random() * (beta_max - beta_min) + beta_min])
 
 
 # For initializing a rho bias parameter
