@@ -22,7 +22,7 @@ def make_data(true_params, consts, T=-1, counties=[], return_all=False):
     if T == -1:
         T = params['T']
 
-    # Parametric function we're using is sigmoid(w'*x + b)
+    # Parametric function we're using is sigmoid(z) for scalar values, sigmoid(w'*x + b) for mobility data x
     ##  Rho rates  ##
     # E -> I
     rho_EI = simple_function(params['rho_EI_coeffs']) * np.ones(num_counties)
@@ -32,7 +32,7 @@ def make_data(true_params, consts, T=-1, counties=[], return_all=False):
 
     ##  Fatality ratios  ##
     # Ratio of I -> D, vs I -> R
-    fatality_I = simple_function(params['fatality_I']) * np.ones(num_counties)
+    fatality_I = simple_function(params['fatality_I']) * np.ones(num_counties) * params['fatality_I_max']
 
     # Set parameters
     n = params['n'][counties]
@@ -40,18 +40,19 @@ def make_data(true_params, consts, T=-1, counties=[], return_all=False):
     initial_deaths = params['death_data'][counties, params['begin_cases']]
 
     if len(params['ratio_E']) == 1:
-        x_0 = params['c_0']
+        x_0 = params['initial_condition']
         ##  Beta rates  ##
         # I -> R
-        beta_I = sig_function(params['mobility_data'][counties], params['beta_I_coeffs'], params['beta_I_bias'])
+        beta_I = sig_function(params['mobility_data'][counties], params['beta_I_coeffs'], params['beta_I_bias']) \
+                 * params['beta_max']
         # E -> I
         beta_E = np.einsum('i,ij->ij', simple_function(params['ratio_E']), beta_I)
     else:
-        x_0 = params['c_0'][counties]
+        x_0 = params['initial_condition'][counties]
         ##  Beta rates  ##
         # I -> R
         beta_I = sig_function(params['mobility_data'][counties], params['beta_I_coeffs'][counties],
-                              params['beta_I_bias'][counties])
+                              params['beta_I_bias'][counties]) * params['beta_max']
         # E -> I
         beta_E = np.einsum('i,ij->ij', simple_function(params['ratio_E'][counties]), beta_I)
 
@@ -62,7 +63,7 @@ def make_data(true_params, consts, T=-1, counties=[], return_all=False):
     for i in range(num_counties):
         E = [np.exp(x_0[i][0])]
         I = [np.exp(x_0[i][1])]
-        R = [np.exp(x_0[i][2])]
+        R = [initial_deaths[i]/params['fatality_I_max'] + np.exp(x_0[i][2])]  # Enforce R(0) >= D(0)/max_fatality_ratio
         D = [initial_deaths[i]]
         for t in range(T - 1):
             # Susceptible compartment
@@ -107,7 +108,7 @@ def make_data_parallel(params, consts, pool, T=-1, counties=[], return_all=False
         global_params['T'] = T
 
     rho = consts['rho'][counties]
-    x_0 = params['c_0'][counties]
+    x_0 = params['initial_condition'][counties]
 
     ##  Beta rates  ##
     # I -> R
@@ -128,8 +129,8 @@ def make_data_parallel(params, consts, pool, T=-1, counties=[], return_all=False
 
     # Run the dynamics and take observations
     do_mp = partial(make_county, global_params=global_params, return_all=return_all)
-    args = [[rho[i], x_0[i], beta_E[i,:], beta_I[i,:]] for i in range(len(counties))]
-    X_data = pool.starmap(do_mp, args, chunksize=(len(counties)//mp.cpu_count()+1))
+    args = [[rho[i], x_0[i], beta_E[i, :], beta_I[i, :]] for i in range(len(counties))]
+    X_data = pool.starmap(do_mp, args, chunksize=(len(counties) // mp.cpu_count() + 1))
 
     return np.reshape(X_data, (len(X_data) * len(X_data[0]), global_params['T']))
 
@@ -173,7 +174,7 @@ def make_data_county(grad_params, consts, county, T=-1, return_all=False):
     if T == -1:
         T = params['T']
     rho = params['rho']
-    c_0 = params['c_0']
+    initial_condition = params['initial_condition']
 
     # Parametric function we're using is sigmoid(w'*x + b)
     simple_function = sigmoid
@@ -182,7 +183,8 @@ def make_data_county(grad_params, consts, county, T=-1, return_all=False):
     # S -> E, via E
     # beta_E = sig_function(params['mobility_data'], params['beta_E_coeffs'], params['beta_E_bias'])
     # S -> E, via I
-    beta_I = sig_function(np.expand_dims(params['mobility_data'][county, :],axis=0), params['beta_I_coeffs'], params['beta_I_bias'])
+    beta_I = sig_function(np.expand_dims(params['mobility_data'][county, :], axis=0), params['beta_I_coeffs'],
+                          params['beta_I_bias'])
     beta_E = (beta_I.T * simple_function(params['ratio_E'])).T
 
     ##  Rho rates  ##
@@ -199,10 +201,10 @@ def make_data_county(grad_params, consts, county, T=-1, return_all=False):
     X_data = []
 
     # Run the dynamics and take observations
-    E = [np.exp(c_0[0])]
-    I = [np.exp(c_0[1])]
-    R = [np.exp(c_0[2])]
-    D = [np.exp(c_0[3])]
+    E = [np.exp(initial_condition[0])]
+    I = [np.exp(initial_condition[1])]
+    R = [np.exp(initial_condition[2])]
+    D = [np.exp(initial_condition[3])]
     for t in range(T - 1):
         # Susceptible compartment
         S = 1 - E[-1] - I[-1] - R[-1] - D[-1]

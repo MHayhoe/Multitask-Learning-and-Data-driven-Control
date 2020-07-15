@@ -69,7 +69,7 @@ def prediction_county(params,iter=0,county=0,length=-1):
 
 # Calculate any penalties and add regularization
 def penalty_regularization(params):
-    return np.sum([np.exp(-shared.consts['n'][i] * params['c_0'][i]) / shared.consts['n'][i]**2
+    return np.sum([np.exp(-shared.consts['n'][i] * params['initial_condition'][i]) / shared.consts['n'][i]**2
                    for i in range(len(shared.consts['n']))])
 
 
@@ -104,7 +104,7 @@ def error_predict(data_true, data_est):
 # Calculate log-likelihood, assuming y~Binomial
 def log_likelihood(params, y, c):
     # Define parameters
-    c_0 = c['c_0']
+    initial_condition = c['initial_condition']
     beta = params['beta']
     tau = c['tau']
 
@@ -115,7 +115,7 @@ def log_likelihood(params, y, c):
     A = orig_A
     e_I = np.array([0, 1, 0])
     LL = 0
-    x_0 = np.array([c_0, 0, 0])
+    x_0 = np.array([initial_condition, 0, 0])
 
     for i in range(c['num_traj']):
         for t in range(1,c['T']):
@@ -144,14 +144,14 @@ def log_likelihood_gaussian(params, y, consts):
     rho_IR = consts['rho_IR']
 
     # Define unknown parameters
-    c_0 = consts['c_0']
+    initial_condition = consts['initial_condition']
     tau = consts['tau']
     beta_C = params['beta']
     beta_I = params['beta']
 
     # Calculate the log likelihood
     e_I = np.array([0, 1, 0])
-    x_0 = [[c_0[i], 0, 0] for i in range(num_counties)]
+    x_0 = [[initial_condition[i], 0, 0] for i in range(num_counties)]
     orig_A = np.asarray([[[1 + rho[i] * beta_C[i] - rho_CI[i], rho[i] * beta_I[i], 0],
                           [rho_CI[i], 1 - rho_IR[i], 0],
                           [0, rho_IR[i], 1]]

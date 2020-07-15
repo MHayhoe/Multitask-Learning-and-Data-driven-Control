@@ -155,7 +155,7 @@ def import_mobility_data(filename, country='US'):
 
 
 # Imports population and mobility data, removing any entries that aren't in both
-def import_data(mobility_name, country='US'):
+def import_data(mobility_name='Global_Mobility_Report.csv', country='US'):
     land_data, age_data, death_data, case_data = import_safegraph_data()
     print('Land Area, Age, Deaths, and Case Counts data imported.')
     mob_data = import_mobility_data(mobility_name, country)
@@ -230,10 +230,10 @@ def import_safegraph_data():
 
     # Death and case counts (infected people) data
     df_nyt = pd.read_csv('Data/nytimes_infections.csv', encoding="ISO-8859-1", low_memory=False)
-    df_nyt['countyFIPS'] = df_nyt['countyFIPS'].apply('{0:0>5}'.format)
-    num_nyt_dates = int((len(df_nyt.columns) - 1) / 2)
-    df_cases = df_nyt.iloc[:,:num_nyt_dates+1]
-    df_deaths = df_nyt.iloc[:, [0] + list(range(num_nyt_dates+1,2*num_nyt_dates+1))]
+    df_nyt['fips'] = df_nyt['fips'].apply('{0:05.0f}'.format)
+    dates = np.unique(df_nyt.date)
+    df_cases = df_nyt.filter(items=['fips', 'date', 'cases'])
+    df_deaths = df_nyt.filter(items=['fips', 'date', 'deaths'])
     death_data = {}
     case_data = {}
 
@@ -256,13 +256,13 @@ def import_safegraph_data():
 
         # Deaths and case counts
         if len(fips) == 5:
-            cases = df_cases[df_cases['countyFIPS'] == fips].to_numpy().T
-            deaths = df_deaths[df_deaths['countyFIPS'] == fips].to_numpy().T
+            case_data[region] = df_cases[df_cases['fips'] == fips].cases.to_numpy()
+            death_data[region] = df_deaths[df_deaths['fips'] == fips].deaths.to_numpy()
         else:
-            cases = np.sum(df_cases[df_cases['countyFIPS'].str.startswith(fips)].to_numpy().T, axis=1)
-            deaths = np.sum(df_deaths[df_deaths['countyFIPS'].str.startswith(fips)].to_numpy().T, axis=1)
-        case_data[region] = cases[1:]
-        death_data[region] = deaths[1:]
+            region_cases = df_cases[df_cases['fips'].str.startswith(fips)]
+            region_deaths = df_deaths[df_deaths['fips'].str.startswith(fips)]
+            case_data[region] = [np.sum(region_cases[region_cases['date'] == d].cases.to_numpy().T) for d in dates]
+            death_data[region] = [np.sum(region_deaths[region_deaths['date'] == d].deaths.to_numpy().T) for d in dates]
 
     return land_data, age_data, death_data, case_data
 

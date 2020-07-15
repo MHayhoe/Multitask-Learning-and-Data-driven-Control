@@ -30,8 +30,12 @@ def setup(num_counties=1, start_day=0, train_days=10):
     gamma_death = 5  # treat loss for death prediction as gamma_death times more important
     shared.consts['begin_mob'] = start_day
     shared.consts['begin_cases'] = 25 + shared.consts['begin_mob']
-    num_categories = 2
+    num_categories = 6
     shared.consts['num_mob_components'] = num_categories
+
+    # Set maximum allowable values for some parameters
+    shared.consts['beta_max'] = 0.5
+    shared.consts['fatality_I_max'] = 0.1
 
     # Import mobility data
     if exists('Mobility_US.pickle') and exists('Age_Distribution_US.pickle') and exists('Deaths_US.pickle') \
@@ -51,13 +55,16 @@ def setup(num_counties=1, start_day=0, train_days=10):
 
     # Define constants
     counties = list(age_distribution_data.keys())
-    if num_counties > 0:
+    if num_counties == 4:
+        counties = ['US', 'AK', 'MT', 'WY']
+        # counties = ['US', 'PA', 'SD', 'CO']
+        # counties = ['NH-Strafford County','MI-Midland County','NE-Douglas County','PA-Philadelphia County']
+    elif num_counties == 52:
+        counties = ['US', 'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'DC', 'FL', 'GA', 'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD', 'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ', 'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC', 'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY']
+    elif num_counties > 0:
         counties = rd.sample(counties, num_counties)
     else:
         num_counties = len(counties)
-    # counties = ['NH-Strafford County','MI-Midland County','NE-Douglas County','PA-Philadelphia County']
-    counties = ['US', 'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'DC', 'FL', 'GA', 'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD', 'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ', 'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC', 'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY']
-    # counties = ['US', 'PA', 'SD', 'CO']
     num_dates = np.shape(mobility_data[counties[0]])[0]
     num_nyt_dates = np.shape(deaths_data[counties[0]])[0]
     num_age_categories = 3 # 0-24, 25-64, 65+
@@ -112,15 +119,15 @@ def setup(num_counties=1, start_day=0, train_days=10):
         # Mobility data, via Google's Global Mobility Report
         mob_data[i, :, :] = Init.pca_reduce(mobility_data[c][shared.consts['begin_mob']:,:] / 100)  # Standardize to be in [-1,1]
         # Deaths from NYT. If we have no data, fill zeros
-        if (deaths_data[c] == 0).all():
-            death_data[i, :] = np.zeros(num_nyt_dates)
-        else:
-            death_data[i, :] = Init.smooth(deaths_data[c] / n[i], filter_width=7)  # Standardize to be in [0,1]
+        # if (deaths_data[c] == 0).all():
+        #     death_data[i, :] = np.zeros(num_nyt_dates)
+        # else:
+        death_data[i, :] = Init.smooth(deaths_data[c] / n[i], filter_width=7)  # Standardize to be in [0,1]
         # Case counts from NYT. If we have no data, fill zeros
-        if (case_count_data[c] == 0).all():
-            case_data[i, :] = np.zeros(num_nyt_dates)
-        else:
-            case_data[i, :] = Init.smooth(case_count_data[c] / n[i], filter_width=7)  # Standardize to be in [0,1]
+        # if (case_count_data[c] == 0).all():
+        #     case_data[i, :] = np.zeros(num_nyt_dates)
+        # else:
+        case_data[i, :] = Init.smooth(case_count_data[c] / n[i], filter_width=7)  # Standardize to be in [0,1]
 
         # Initialize parameters
         rho[i] = Init.calculate_rho(n[i], land_data[c])
@@ -200,6 +207,7 @@ def plot_prediction(params, length):
     num_compartments = 1
     num_real_compartments = 1
     plot_split = int(np.ceil(np.sqrt(num_counties)))
+    dates = np.arange(validation_days)
 
     X = Init.get_real_data(length)
     real_X = np.asarray(X).T
@@ -217,6 +225,8 @@ def plot_prediction(params, length):
         else:
             plt.plot(real_X[:, i * num_compartments:(i + 1) * num_compartments])
         plt.plot(est_X[:, i * num_compartments:(i + 1) * num_compartments], '--')
+        ylims = plt.gca().get_ylim()
+        plt.fill_between(dates, ylims[0], ylims[1], where=dates > shared.consts['T'], facecolor='red', alpha=0.2)
         # plt.legend(['Exp.', 'Inf.', 'Hosp.', 'Rec.', 'Dead'])
         plt.title('{} ({:.0f})'.format(consts['county_names'][i], consts['n'][i]))
 
@@ -228,7 +238,10 @@ def plot_prediction(params, length):
             #                  conf_intervals[i * num_compartments,1,shared.consts['T']:length], facecolor='blue', alpha=0.3)
             # plt.fill_between(range(shared.consts['T'], length), conf_intervals[i * num_compartments + 1,0, shared.consts['T']:length],
             #                  conf_intervals[i * num_compartments + 1,1, shared.consts['T']:length], facecolor='orange', alpha=0.3)
-            plt.legend(['Cases','Deaths', 'Inf.', 'Dead'])
+            ylims = plt.gca().get_ylim()
+            plt.fill_between(dates, ylims[0], ylims[1], where=dates > shared.consts['T'], facecolor='red', alpha=0.2)
+            plt.legend(['Recorded Deaths', 'Predicted Deaths'],loc='upper left')
+            # plt.legend(['Cases','Deaths', 'Inf.', 'Dead'])
             # plt.legend(['Deaths', 'Exp.', 'Inf.', 'Rec.', 'Dead'])
         else:
             plt.plot(real_X[:, i * num_compartments:(i + 1) * num_compartments])
@@ -275,16 +288,16 @@ def confidence_intervals(params, validation_days, num_trials=100, confidence=0.9
 if __name__ == '__main__':
     # Define all values
     shared.real_data = True
-    num_counties = 52  # use all counties
-    train_days = 30
-    validation_days = train_days + 10
-    start_day = 113 - validation_days
+    num_counties = 52  # use all states
+    train_days = 60
+    validation_days = train_days + 40
+    start_day = 134 - validation_days
     num_batches = 10
-    num_trials = 16
+    num_trials = 8
 
     setup(num_counties=num_counties, start_day=start_day, train_days=train_days)
 
-    optimized_params = optimize_sgd(num_epochs=1500, num_batches=num_batches, num_trials=num_trials, step_size=0.01,
+    optimized_params = optimize_sgd(num_epochs=2000, num_batches=num_batches, num_trials=num_trials, step_size=0.01,
                                     show_plots=False)
     print(optimized_params)
     plot_prediction(optimized_params, validation_days)

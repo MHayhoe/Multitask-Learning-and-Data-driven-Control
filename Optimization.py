@@ -28,7 +28,7 @@ def make_guess(batch_num=1):
             'beta_I_bias': Init.initialize_beta_bias(),
             'fatality_I': inverse_sigmoid(0.01 * batch_num),
             'ratio_E': np.array([inverse_sigmoid(0.1) for i in range(num_counties)]),
-            'c_0': Init.initial_condition()}
+            'initial_condition': Init.initial_condition()}
 
 
 # Run the optimization by splitting the counties into batches across epochs, and only updating one batch per step
@@ -124,7 +124,7 @@ def create_batches(x, num_batches):
 
 # Callback function for optimization
 def print_performance(params, iteration, gradient, trial, show_plots):
-    if iteration % (shared.consts['num_batches'] * 10) == 0:
+    if iteration % (shared.consts['num_batches'] * 50) == 0:
         print('Trial {}: epoch {}, loss {:.3e}'.format(trial, iteration // shared.consts['num_batches'], prediction_loss(params)))
         # print(gradient)
         if show_plots:
@@ -190,7 +190,7 @@ def plot_trajectories(params, plot_params, batch, iteration):
             ax.fill_between(shared.plot_values['fold'], 0, ax.get_ylim()[1], facecolor='blue', alpha=0.3)
         ax.yaxis.set_ticklabels([])
 
-        # Plot parameter values
+        # Plot gradient values
         ax1 = plt.subplot(num_counties, num_plots, num_plots * i + 2)
         plt.title(
             '{} ({:.0f}), iteration {}'.format(shared.consts['county_names'][i], shared.consts['n'][i], iteration))
@@ -208,6 +208,7 @@ def plot_trajectories(params, plot_params, batch, iteration):
             # plt.clf()
             ax1.plot(np.asarray(shared.plot_values[k][i]), label=k)
 
+        ax1.legend(loc='upper left')
         # Plot loss
         shared.plot_values['loss'][i].append(prediction_loss(params))
         ax2 = ax1.twinx()
@@ -218,7 +219,7 @@ def plot_trajectories(params, plot_params, batch, iteration):
         # Plot mobility data
         ax1 = plt.subplot(num_counties, num_plots, num_plots * i + 3)
         beta_I = sig_function(shared.consts['mobility_data'][i][:shared.consts['T'], :], params['beta_I_coeffs'][i],
-                              params['beta_I_bias'][i])
+                              params['beta_I_bias'][i]) * shared.consts['beta_max']
         # Line widths based on weights of each mobility category. Normalized to [0,5].
         weights = np.abs(np.squeeze(params['beta_I_coeffs'][i]))
         weights = weights / np.max(weights) * 5
@@ -227,7 +228,7 @@ def plot_trajectories(params, plot_params, batch, iteration):
             lines[j].set_linewidth(weights[j])
         ax2 = ax1.twinx()
         ax2.plot(beta_I, '--')
-        #ax1.yaxis.set_ticklabels([])
+        ax1.yaxis.set_ticklabels([])
         #ax2.yaxis.set_ticklabels([])
 
         # Draw the plot

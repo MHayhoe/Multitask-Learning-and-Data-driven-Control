@@ -15,13 +15,20 @@ from astropy.convolution import convolve, Box1DKernel
 beta_min = -1
 beta_max = 1
 
+# For initial conditions
+init_min = 1e-5
+init_max = 0.1
+
 
 # Performs dimensionality reduction via PCA
 def pca_reduce(mob_data):
-    first_diff = mob_data[1:] - mob_data[:-1]
-    L, W = np.linalg.eig(np.cov(first_diff.T))
-    W = W[:,np.argsort(L)[-shared.consts['num_mob_components']:]]
-    return np.vstack((W.T@mob_data[0,:], W.T@mob_data[0,:] + np.cumsum(first_diff@W,0)))
+    if shared.consts['num_mob_components'] == 6:
+        return mob_data
+    else:
+        first_diff = mob_data[1:] - mob_data[:-1]
+        L, W = np.linalg.eig(np.cov(first_diff.T))
+        W = W[:,np.argsort(L)[-shared.consts['num_mob_components']:]]
+        return np.vstack((W.T@mob_data[0,:], W.T@mob_data[0,:] + np.cumsum(first_diff@W,0)))
 
 
 # Smooths out a signal by applying mean filtering
@@ -113,19 +120,23 @@ def calculate_rho(population, area, radius=0.1):
 
 # For creating an initial condition
 def initial_condition(county=-1):
-    n = shared.consts['n']
     if county == -1:
-        num_counties = len(n)
-        return np.squeeze([[np.log(rd.randint(1,10) / n[i]), np.log(1 / n[i]), np.log(1 / n[i])]
-                           for i in range(num_counties)])
+        num_counties = len(shared.consts['n'])
+        initial_deaths = shared.consts['death_data'][:, shared.consts['begin_cases']]
+        initial_deaths[initial_deaths == 0] = 1e-10
+        return np.squeeze([[np.log((rd.random()*(init_max - init_min) + init_min)),
+                            np.log((rd.random()*(init_max - init_min) + init_min)),
+                            np.log(initial_deaths[i])] for i in range(num_counties)])
     else:
-        return np.array([np.log(rd.randint(1,10) / n[county]), np.log(1 / n[county]), np.log(1 / n[county])])
+        return np.array([np.log((rd.random()*(init_max - init_min) + init_min)),
+                         np.log((rd.random()*(init_max - init_min) + init_min)),
+                         np.log(shared.consts['death_data'][county, shared.consts['begin_cases']])])
 
 
 # For initializing a beta bias parameter
 def initialize_beta_bias(county=-1):
     if county == -1:
-        return np.array([rd.random()*(beta_max - beta_min) + beta_min - 2 for i in range(len(shared.consts['n']))])
+        return np.array([rd.random()*(beta_max - beta_min) + beta_min - 2 for _ in range(len(shared.consts['n']))])
     else:
         return np.array([rd.random() * (beta_max - beta_min) + beta_min])
 
@@ -181,7 +192,7 @@ def params_to_pd(params, dir):
 def params_to_df_row(p, c):
     sc = shared.consts
     row_params = [sc['county_names'][c][:2], sc['county_names'][c][3:], sc['n'][c]] + \
-                  list(np.squeeze(sc['n'][c]*np.exp(p['c_0']))) + [simple_function(p['fatality_I']),
+                  list(np.squeeze(sc['n'][c]*np.exp(p['initial_condition']))) + [simple_function(p['fatality_I']),
                   simple_function(p['ratio_E']), simple_function(p['rho_EI_coeffs']), simple_function(p['rho_IR_coeffs']),
                   p['beta_I_bias']] + list(np.squeeze(p['beta_I_coeffs']))
     X_est = make_data(p, shared.consts, counties=[c])
