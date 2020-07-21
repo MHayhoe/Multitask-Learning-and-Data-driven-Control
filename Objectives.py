@@ -1,5 +1,6 @@
 import shared
 from SEIRD_clinical import make_data, make_data_parallel
+from SEIRD_bootstrap import do_bootstrap
 from Initialization import get_real_data, get_real_data_fold, get_real_data_county, train_fold
 
 import matplotlib.pyplot as plt
@@ -34,6 +35,14 @@ def prediction_loss_sgd(params, iteration=0, length=-1, pool=None):
         X_est = make_data(params, shared.consts, T=length, counties=counties)
 
     return error_predict_loss(X, X_est, length, counties=counties)
+
+
+# Loss for training bootstrapped parameters
+def bootstrap_loss(params, iteration=0, length=-1, data=None):
+    X = get_real_data(length)
+    X_bootstrap = do_bootstrap(params, data, shared.consts, T=length)
+
+    return error_predict_loss(X, X_bootstrap, length)
 
 
 # Returns the relevant parameters and constants for the given counties

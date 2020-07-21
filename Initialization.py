@@ -32,8 +32,13 @@ def pca_reduce(mob_data):
 
 
 # Smooths out a signal by applying mean filtering
-def smooth(x, filter_width=2):
+def smooth(x, filter_width=2, length=0):
     x = np.squeeze(x)
+    # Either shorten the list to size, or prepend with zeros
+    if np.shape(x)[0] >= length:
+        x = x[-length:]
+    else:
+        x = np.hstack((np.zeros((length - np.shape(x)[0])), x))
     smooth_x = np.zeros(len(x))
     for ii in range(len(x)):
         smooth_x[ii] = np.mean(x[max(0,ii-filter_width):ii+1])

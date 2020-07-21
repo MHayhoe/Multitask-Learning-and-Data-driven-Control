@@ -1,7 +1,8 @@
 # Our scripts
 from SEIRD_clinical import make_data, make_data_parallel
+from SEIRD_bootstrap import bootstrap_data
 import Initialization as Init
-from Objectives import prediction_loss, prediction_loss_sgd, prediction_county
+from Objectives import prediction_loss, prediction_loss_sgd, prediction_county, bootstrap_loss
 import shared
 import random as rd
 from Helper import inverse_sigmoid, sig_function
@@ -55,6 +56,19 @@ def optimize_sgd(num_epochs=20, num_batches=1, num_trials=8, step_size=0.01, sho
                 county_params[k] = np.expand_dims(county_params[k][c],axis=0)
         opt_params[c] = county_params
 
+    return opt_params
+
+
+# Optimizing for bootstrapping
+def optimize_bootstrap(X_est, consts, num_iters=2000, step_size=0.01):
+    grad_bootstrap = grad(partial(bootstrap_loss, data=X_est))
+    shared.consts = consts
+    guess = make_guess()
+
+    # Do the optimization
+    opt_params = adam(grad_bootstrap, guess, step_size=step_size, num_iters=num_iters)
+
+    # Calculate the error on the test data and return the optimized parameters
     return opt_params
 
 
@@ -154,14 +168,14 @@ def setup_plotting():
 # Plots trajectories based on current parameters
 def plot_trajectories(params, plot_params, batch, iteration):
     num_counties = len(shared.consts['n'])
-    num_compartments = 4
+    num_compartments = 1
     num_real_compartments = 1
     num_plots = 3
 
     X = Init.get_real_data(shared.consts['T'])
     real_X = (np.asarray(X).T * np.repeat(shared.consts['n'], num_real_compartments)).T
 
-    X_est = make_data(params, shared.consts, return_all=True)
+    X_est = make_data(params, shared.consts, return_all=False)
     est_X = (np.asarray(X_est).T * np.repeat(shared.consts['n'], num_compartments)).T
 
     global_keys = set(['rho_EI_coeffs', 'rho_IR_coeffs', 'fatality_I'])
@@ -208,7 +222,7 @@ def plot_trajectories(params, plot_params, batch, iteration):
             # plt.clf()
             ax1.plot(np.asarray(shared.plot_values[k][i]), label=k)
 
-        ax1.legend(loc='upper left')
+        # ax1.legend(loc='upper left')
         # Plot loss
         shared.plot_values['loss'][i].append(prediction_loss(params))
         ax2 = ax1.twinx()

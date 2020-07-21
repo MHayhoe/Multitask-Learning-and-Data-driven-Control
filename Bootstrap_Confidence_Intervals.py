@@ -34,11 +34,11 @@ def run_bootstrap(num_trials, bootstrap_sample_size, filename, confidence=0.95, 
 
     # Run the trials to bootstrap
     bootstrap_params = []
-    bootstrap_loss = []
+    bootstrap_losses = []
     for t in range(num_trials):
-        current_params = optimize_bootstrap(X_est, num_epochs=2000, num_batches=1, step_size=0.01)
+        current_params = optimize_bootstrap(X_est, shared.consts, num_iters=2000, step_size=0.01)
         bootstrap_params.append(current_params)
-        bootstrap_loss.append(bootstrap_loss(current_params, validation_days))
+        bootstrap_losses.append(bootstrap_loss(current_params, validation_days))
 
     # Generate confidence intervals
     sorted_params = bootstrap_params[np.argsort(bootstrap_loss)]
@@ -57,6 +57,5 @@ def run_bootstrap(num_trials, bootstrap_sample_size, filename, confidence=0.95, 
     return UCB, LCB
 
 
-
 if __name__ == '__main__':
-    run_bootstrap(10, 20, 'Plots/2020-Jul-04-16-31-41_6_cats/')
+    run_bootstrap(10, 20, 'Plots/2020-Jul-16-16-39-56_6_cats/')
