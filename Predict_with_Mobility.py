@@ -9,6 +9,7 @@ from Import_Data import import_data
 import autograd.numpy as np
 
 # Helpers
+import argparse
 from datetime import datetime
 from copy import deepcopy
 import matplotlib.pyplot as plt
@@ -50,6 +51,14 @@ def setup(num_counties=1, start_day=0, train_days=10, validation_days=10, state=
     # Define constants
     counties = list(age_distribution_data.keys())
     if state:
+        state_abbrevs = ["AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DC", "DE", "FL", "GA",
+                         "HI", "ID", "IL", "IN", "IA", "KS", "KY", "LA", "ME", "MD",
+                         "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH", "NJ",
+                         "NM", "NY", "NC", "ND", "OH", "OK", "OR", "PA", "RI", "SC",
+                         "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI", "WY"]
+        # Find the abbreviation, based on state number
+        state = state_abbrevs[state]
+
         # Pick the counties from this state that have some deaths during training period
         counties = [c for c in counties if c.startswith(state + '-') and
                                            deaths_data[c][-(validation_days - train_days)] >= 5]
@@ -189,6 +198,11 @@ def plot_prediction(params, length):
 
 
 if __name__ == '__main__':
+    # For parsing command-line arguments
+    parser = argparse.ArgumentParser(description='Train the SEIRD mobility model at the state level.')
+    parser.add_argument('--state', dest='state', type=int, default=38)
+    args = parser.parse_args()
+
     # Define all values
     shared.real_data = True
     num_counties = 19  # use all states
@@ -198,7 +212,7 @@ if __name__ == '__main__':
     num_batches = 1
     num_trials = 8
 
-    setup(num_counties=num_counties, start_day=start_day, train_days=train_days, validation_days=validation_days, state='PA')
+    setup(num_counties=num_counties, start_day=start_day, train_days=train_days, validation_days=validation_days, state=args.state)
     num_counties = len(shared.consts['n'])
 
     optimized_params = optimize_sgd(num_epochs=1000, num_batches=num_batches, num_trials=num_trials, step_size=0.01,
