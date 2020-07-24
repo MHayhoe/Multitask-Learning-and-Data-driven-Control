@@ -57,10 +57,12 @@ def setup(num_counties=1, start_day=0, train_days=10, validation_days=10, state=
                          "NM", "NY", "NC", "ND", "OH", "OK", "OR", "PA", "RI", "SC",
                          "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI", "WY"]
         # Find the abbreviation, based on state number
-        state = state_abbrevs[state]
+        state = state_abbrevs[state-1]
+        print(state)
 
         # Pick the counties from this state that have some deaths during training period
         counties = [c for c in counties if c.startswith(state + '-') and
+                                           len(deaths_data[c]) > validation_days - train_days and
                                            deaths_data[c][-(validation_days - train_days)] >= 5]
         #            deaths_data[c][-(validation_days-train_days)] / np.sum(age_distribution_data[c]) > 1e-5]
         counties.append(state)
@@ -200,7 +202,7 @@ def plot_prediction(params, length):
 if __name__ == '__main__':
     # For parsing command-line arguments
     parser = argparse.ArgumentParser(description='Train the SEIRD mobility model at the state level.')
-    parser.add_argument('--state', dest='state', type=int, default=38)
+    parser.add_argument('--state', dest='state', type=int, default=5)
     args = parser.parse_args()
 
     # Define all values
@@ -212,7 +214,7 @@ if __name__ == '__main__':
     num_batches = 1
     num_trials = 8
 
-    setup(num_counties=num_counties, start_day=start_day, train_days=train_days, validation_days=validation_days, state=args.state)
+    setup(start_day=start_day, train_days=train_days, validation_days=validation_days, state=args.state)
     num_counties = len(shared.consts['n'])
 
     optimized_params = optimize_sgd(num_epochs=1000, num_batches=num_batches, num_trials=num_trials, step_size=0.01,
