@@ -51,15 +51,6 @@ def setup(num_counties=1, start_day=0, train_days=10, validation_days=10, state=
     # Define constants
     counties = list(age_distribution_data.keys())
     if state:
-        state_abbrevs = ["AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DC", "DE", "FL", "GA",
-                         "HI", "ID", "IL", "IN", "IA", "KS", "KY", "LA", "ME", "MD",
-                         "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH", "NJ",
-                         "NM", "NY", "NC", "ND", "OH", "OK", "OR", "PA", "RI", "SC",
-                         "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI", "WY"]
-        # Find the abbreviation, based on state number
-        state = state_abbrevs[state-1]
-        print(state)
-
         # Pick the counties from this state that have some deaths during training period
         counties = [c for c in counties if c.startswith(state + '-') and
                                            len(deaths_data[c]) > validation_days - train_days and
@@ -130,9 +121,14 @@ def setup(num_counties=1, start_day=0, train_days=10, validation_days=10, state=
 
 
 # Plot the predicted and true trajectories (possibly real data)
-def plot_prediction(params, length):
+def plot_prediction(params, length, state=None):
     # Make a folder to save plots
-    time_dir = 'Plots/' + datetime.now().strftime("%Y-%b-%d-%H-%M-%S") + '/'
+    time_dir = 'Plots/' + datetime.now().strftime("%Y-%b-%d-%H-%M-%S")
+    if state:
+        time_dir += '_' + state + '/'
+    else:
+        time_dir += '/'
+
     if not exists(time_dir):
         mkdir(time_dir)
 
@@ -199,11 +195,22 @@ def plot_prediction(params, length):
     plt.show()
 
 
+def set_state(state_num):
+    state_abbrevs = ["AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DC", "DE", "FL", "GA",
+                     "HI", "ID", "IL", "IN", "IA", "KS", "KY", "LA", "ME", "MD",
+                     "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH", "NJ",
+                     "NM", "NY", "NC", "ND", "OH", "OK", "OR", "PA", "RI", "SC",
+                     "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI", "WY"]
+    # Find the abbreviation, based on state number
+    return state_abbrevs[state_num - 1]
+
+
 if __name__ == '__main__':
     # For parsing command-line arguments
     parser = argparse.ArgumentParser(description='Train the SEIRD mobility model at the state level.')
-    parser.add_argument('--state', dest='state', type=int, default=38)
+    parser.add_argument('--state', dest='state_num', type=int, default=38)
     args = parser.parse_args()
+    state = set_state(args.state_num)
 
     # Define all values
     shared.real_data = True
@@ -214,12 +221,12 @@ if __name__ == '__main__':
     num_batches = 1
     num_trials = 8
 
-    setup(start_day=start_day, train_days=train_days, validation_days=validation_days, state=args.state)
+    setup(start_day=start_day, train_days=train_days, validation_days=validation_days, state=state)
     num_counties = len(shared.consts['n'])
 
-    optimized_params = optimize_sgd(num_epochs=1, num_batches=num_batches, num_trials=num_trials, step_size=0.01,
+    optimized_params = optimize_sgd(num_epochs=1500, num_batches=num_batches, num_trials=num_trials, step_size=0.01,
                                     show_plots=False)
     #with open('Plots/2020-Jul-20-17-03-54/opt_params.pickle','rb') as handle:
     #    optimized_params = pickle.load(handle)
     print(optimized_params)
-    plot_prediction(optimized_params, validation_days)
+    plot_prediction(optimized_params, validation_days, state=state)
