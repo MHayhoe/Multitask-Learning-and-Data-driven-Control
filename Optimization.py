@@ -52,8 +52,11 @@ def optimize_sgd(num_epochs=20, num_batches=1, num_trials=8, step_size=0.01, sho
         obj_vals = [prediction_county(p,county=c) for p in mp_params]
         county_params = deepcopy(mp_params[np.argmin(obj_vals)])
         for k,v in county_params.items():
-            if np.ndim(county_params[k]) >= 1:
-                county_params[k] = np.expand_dims(county_params[k][c],axis=0)
+            if np.ndim(v) >= 1:
+                if k == 'initial_condition' and np.ndim(v) == 1:
+                    county_params[k] = np.expand_dims(v, axis=0)
+                else:
+                    county_params[k] = np.expand_dims(v[c],axis=0)
         opt_params[c] = county_params
 
     return opt_params

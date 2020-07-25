@@ -40,7 +40,7 @@ def make_data(true_params, consts, T=-1, counties=[], return_all=False):
     initial_deaths = params['death_data'][counties, params['begin_cases']]
 
     if len(params['ratio_E']) == 1:
-        x_0 = np.reshape(params['initial_condition'], (1, params['initial_condition'].shape[0]))
+        x_0 = np.reshape(params['initial_condition'], (1,3))
         ##  Beta rates  ##
         # I -> R
         beta_I = sig_function(params['mobility_data'][counties], params['beta_I_coeffs'], params['beta_I_bias']) \

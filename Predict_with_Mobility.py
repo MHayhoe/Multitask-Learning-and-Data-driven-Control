@@ -202,14 +202,14 @@ def plot_prediction(params, length):
 if __name__ == '__main__':
     # For parsing command-line arguments
     parser = argparse.ArgumentParser(description='Train the SEIRD mobility model at the state level.')
-    parser.add_argument('--state', dest='state', type=int, default=5)
+    parser.add_argument('--state', dest='state', type=int, default=38)
     args = parser.parse_args()
 
     # Define all values
     shared.real_data = True
     num_counties = 19  # use all states
-    train_days = 30
-    validation_days = train_days + 14
+    train_days = 60
+    validation_days = train_days + 21
     start_day = 134 - validation_days
     num_batches = 1
     num_trials = 8
@@ -217,7 +217,7 @@ if __name__ == '__main__':
     setup(start_day=start_day, train_days=train_days, validation_days=validation_days, state=args.state)
     num_counties = len(shared.consts['n'])
 
-    optimized_params = optimize_sgd(num_epochs=1000, num_batches=num_batches, num_trials=num_trials, step_size=0.01,
+    optimized_params = optimize_sgd(num_epochs=1, num_batches=num_batches, num_trials=num_trials, step_size=0.01,
                                     show_plots=False)
     #with open('Plots/2020-Jul-20-17-03-54/opt_params.pickle','rb') as handle:
     #    optimized_params = pickle.load(handle)
