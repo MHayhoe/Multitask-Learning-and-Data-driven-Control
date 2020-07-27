@@ -23,3 +23,17 @@ scipy==1.4.1
 six==1.15.0
 tabulate==0.8.3
 urllib3==1.25.9
+
+pip~=19.2.3
+Brotli~=1.0.7
+google~=2.0.3
+setuptools~=41.2.0
+beautifulsoup4~=4.9.1
+certifi~=2020.6.20
+tornado~=6.0.4
+Jinja2~=2.11.2
+dash~=1.13.4
+seaborn~=0.10.1
+lxml~=4.5.2
+plotly~=4.9.0
+us~=2.0.2
