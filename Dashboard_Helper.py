@@ -81,8 +81,8 @@ def make_deaths_figure(df, selected_state=None):
     fig.update_layout(margin={'l':0, 'r':0, 't': 0, 'b': 0}, xaxis_title='Week', yaxis_title='Deaths',
                       showlegend=False, spikedistance=-1, hovermode='x')
     # Set a vertical spike to show current time period
-    fig.update_xaxes(showgrid=False, zeroline=False, spikemode='across', spikesnap='cursor', spikecolor='black', spikedash='solid', spikethickness=1)
-    fig.update_yaxes(showgrid=False)
+    fig.update_xaxes(range=[-0.5, dates[-1] + 0.5], linecolor='black', color='black', showgrid=False, zeroline=False, spikemode='across', spikesnap='cursor', spikecolor='black', spikedash='solid', spikethickness=1)
+    fig.update_yaxes(showgrid=False, zeroline=False)
     return fig
 
 
