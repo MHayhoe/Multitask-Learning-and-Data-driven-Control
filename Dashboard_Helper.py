@@ -60,11 +60,22 @@ def make_deaths_figure(df, selected_state=None):
         real_deaths = df.iloc[:,2:].sum().to_numpy()
         fig_title = 'US National'
     dates = np.arange(np.ceil(len(df.iloc[0])/7))
+    # For confidence intervals
+    conf_dates = list(dates[-4:]) + list(dates[-1:-5:-1])
+    y_upper = real_deaths[-28::7]*1.05
+    y_lower = real_deaths[-28::7]*0.95
+    conf_y = list(y_upper) + list(y_lower[::-1])
     fig = go.Figure(layout=Layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)'))
+    # Actual data
     fig.add_trace(go.Scatter(x=dates[:-4], y=real_deaths[:-28:7], name='True', mode='lines+markers', marker={'color':'lightgrey'},
                              hovertemplate='<b>%{y:,}</b> <i>Actual</i><extra></extra>'))
-    fig.add_trace(go.Scatter(x=dates[-4:], y=real_deaths[-28::7], name='Predicted', mode='lines+markers',
-                             hovertemplate='<b>%{y:,}</b> <i>Predicted</i><extra></extra>'))
+    # Confidence intervals
+    fig.add_trace(go.Scatter(x=conf_dates, y=conf_y, mode='none', fill='tozeroy', fillcolor='rgba(255,0,0,0.2)',
+                             hoverinfo='skip'))
+    # Predicted data
+    fig.add_trace(go.Scatter(x=dates[-4:], y=real_deaths[-28::7], name='Predicted', line={'color': 'rgb(255,0,0)'},
+                             mode='lines+markers', hovertemplate='<b>%{y:,}</b> <i>Predicted</i><extra></extra>'))
+    # Grey background
     fig.add_shape(type='rect', xref='x', yref='paper', x0=-2, y0=0, x1=dates[-5], y1=1, line={'width': 0},
                   fillcolor='#edeff2', layer='below')
     fig.update_layout(margin={'l':0, 'r':0, 't': 0, 'b': 0}, xaxis_title='Week', yaxis_title='Deaths',
@@ -98,6 +109,7 @@ def make_map_figure(df, selected_state=None, hover_state=None):
         marker_line_color=None,
         #showlakes=False,
         colorscale=color_scale,
+        showscale=False,
         colorbar={'title': 'Deaths', 'tickvals': [1,2,3,4], 'ticktext': ['10','100','1,000','10,000'],
                   'xanchor': 'left', 'x': 0.9, 'yanchor': 'middle'}
     ))

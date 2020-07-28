@@ -23,27 +23,50 @@ app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 app.layout = html.Div([
     html.Div(id='hover-data', style={'display': 'none'}),
     html.Div(id='select-data', style={'display': 'none'}),
-    html.Div([
-        html.Div([
-    html.Div([
-        html.Div([
-            html.Div([
-                dcc.Dropdown(
-                    id='state-dropdown',
-                    options=[{'label': sa, 'value': sn} for (sa, sn) in zip(state_names, state_abbrevs)],
-                    value='', style={'width': '160px'})
-            ]),
 
+    html.Header([
+        html.Div([html.Div([
             html.Div([
-                dcc.Graph(id='map', figure=fig_map, clear_on_unhover=True, config={'displayModeBar': False}, style={'height': '200px'})
-            ]),
-        ], id='map-container', className='column is-4', style={'padding': '10px'}),
-        html.Div([
-            dcc.Graph(id='series-plot', figure=fig_series, config={'displayModeBar': False}, style={'height': '200px'})
-        ], id='chart-container', className='column is-8')
-    ], className='columns'),
-    ], className='container')], className='section'),
+                html.P([html.Img(src='https://branding.web-resources.upenn.edu/sites/default/files/styles/1200x600_image/public/field/image/UniversityofPennsylvania_FullLogo_RGB_card.png?itok=xBxY13TC',
+                                 style={'width': '150px'})], className='site-logo'),
+            ], className='site-branding'),
+        ], className='site-header-inside', style={'padding-left': '20px'})], className='inner')
+    ], className='site-header outer'),
+
     html.Hr(style={'margin': '0px'}),
+
+    html.Div([
+        html.Div([
+            html.Div([
+                html.Div([
+                    html.Div([
+                        html.Div([
+                            html.Div([
+                                html.P(["State"], className='heading'),
+                                dcc.Dropdown(
+                                    id='state-dropdown', value='', style={'width': '170px'}, className='level-left',
+                                    placeholder='US National',
+                                    options=[{'label': sa, 'value': sn} for (sa,sn) in zip(state_names, state_abbrevs)])
+                            ]),
+                        ], className='level is-mobile')
+                    ], id='selection-container'),
+
+                    html.Div([
+                        dcc.Graph(id='map', figure=fig_map, clear_on_unhover=True, config={'displayModeBar': False}, style={'height': '200px'})
+                    ], id='map-figure-container'),
+                ], id='map-container', className='column is-4'),
+
+                html.Div([
+                    html.Div(['Cumulative observed deaths'], className='heading'),
+                    html.Hr(),
+                    dcc.Graph(id='series-plot', figure=fig_series, config={'displayModeBar': False}, style={'height': '300px'})
+                ], id='chart-container', className='column is-8')
+            ], className='columns'),
+        ], className='container')
+    ], className='section'),
+
+    html.Hr(style={'margin': '0px'}),
+
     html.Footer([
         html.Div([
             html.Div(['Last updated on Tuesday, July 28th.'], className='content has-text-centered')
