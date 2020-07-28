@@ -93,7 +93,7 @@ def make_map_figure(df, selected_state=None, hover_state=None):
     custom_data = np.dstack((deaths,state_names))[0]
 
     # For color scaling
-    color_scale = 'Portland'
+    color_scale = 'Burg'
     z_max = np.max(np.log10(deaths))
     z_min = np.min(np.log10(deaths))
 
@@ -107,9 +107,8 @@ def make_map_figure(df, selected_state=None, hover_state=None):
         locationmode='USA-states',
         marker={'line': {'width': 0}},
         marker_line_color=None,
-        #showlakes=False,
         colorscale=color_scale,
-        showscale=False,
+        #showscale=False,
         colorbar={'title': 'Deaths', 'tickvals': [1,2,3,4], 'ticktext': ['10','100','1,000','10,000'],
                   'xanchor': 'left', 'x': 0.9, 'yanchor': 'middle'}
     ))

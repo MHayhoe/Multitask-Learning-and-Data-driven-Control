@@ -4,6 +4,7 @@ import dash_html_components as html
 import plotly.express as px
 from dash.dependencies import Input, Output
 from Dashboard_Helper import *
+import datetime
 
 import us
 
@@ -17,8 +18,10 @@ df_deaths = import_deaths_data()
 fig_map = make_map_figure(df_deaths)
 fig_series = make_deaths_figure(df_deaths)
 external_stylesheets = ['https://cdnjs.cloudflare.com/ajax/libs/bulma/0.7.0/css/bulma.min.css']
+start_time = datetime.datetime.now().strftime('%A %B %d %Y, %H:%M:%S EST')
 
 app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
+server = app.server
 
 app.layout = html.Div([
     html.Div(id='hover-data', style={'display': 'none'}),
@@ -45,7 +48,7 @@ app.layout = html.Div([
                                 html.P(["State"], className='heading'),
                                 dcc.Dropdown(
                                     id='state-dropdown', value='', style={'width': '170px'}, className='level-left',
-                                    placeholder='US National',
+                                    placeholder='US National', multi=False,
                                     options=[{'label': sa, 'value': sn} for (sa,sn) in zip(state_names, state_abbrevs)])
                             ]),
                         ], className='level is-mobile')
@@ -69,7 +72,12 @@ app.layout = html.Div([
 
     html.Footer([
         html.Div([
-            html.Div(['Last updated on Tuesday, July 28th.'], className='content has-text-centered')
+            html.Div([dcc.Markdown(['''
+[Mikhail Hayhoe](https://mhayhoe.com) and the [Preciado Lab](https://sites.google.com/site/victormpreciado/) at the *University of Pennsylvania*.            
+
+Last updated on **''' + start_time + '''**.           
+Made using [plotly](https://plotly.com).
+            '''])], className='content has-text-centered')
         ], className='container')
     ], className='footer')
 ])
