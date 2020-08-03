@@ -22,6 +22,9 @@ def save_dataframe(dir):
         region_deaths = df_deaths[df_deaths['state'] == name]
         df_states.loc[len(df_states)] = [name, abbr] + [np.sum(region_deaths[region_deaths['date'] == d].deaths.to_numpy().T) for d in dates]
 
+    with open('deaths_df.pickle', 'wb') as handle:
+        pickle.dump(df_states, handle, protocol=4)
+
     # Make predictions
     with open(dir + '/opt_params.pickle', 'rb') as handle:
         optimized_params = pickle.load(handle)

@@ -15,14 +15,17 @@ state_names = [s.name for s in us.states.STATES]
 # Set up the global variables
 df = import_county_data()
 df_deaths = import_deaths_data()
+dict_mobility = import_mobility_data()
 fig_map = make_map_figure(df_deaths)
 fig_series = make_deaths_figure(df_deaths)
+fig_mobility = make_mobility_figure(dict_mobility)
 external_stylesheets = ['https://cdnjs.cloudflare.com/ajax/libs/bulma/0.7.0/css/bulma.min.css']
 start_time = datetime.datetime.now().strftime('%A %B %d %Y, %H:%M:%S EST')
 
 app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 server = app.server
 
+app.title = 'COVID-19 Predictions using Mobility Data'
 app.layout = html.Div([
     html.Div(id='hover-data', style={'display': 'none'}),
     html.Div(id='select-data', style={'display': 'none'}),
@@ -60,10 +63,18 @@ app.layout = html.Div([
                 ], id='map-container', className='column is-4'),
 
                 html.Div([
-                    html.Div(['Cumulative observed deaths'], className='heading'),
-                    html.Hr(),
-                    dcc.Graph(id='series-plot', figure=fig_series, config={'displayModeBar': False}, style={'height': '300px'})
-                ], id='chart-container', className='column is-8')
+                    html.Div([
+                        html.Div(['Cumulative observed deaths'], className='heading'),
+                        html.Hr(),
+                        dcc.Graph(id='series-plot', figure=fig_series, config={'displayModeBar': False}, style={'height': '300px'})
+                    ], id='chart-container', className='row is-8'),
+
+                    html.Div([
+                        html.Div(['Mobility Data'], className='heading'),
+                        html.Hr(),
+                        dcc.Graph(id='mobility-plot', figure=fig_mobility, config={'displayModeBar': False}, style={'height': '300px'})
+                    ], id='mobility-container', className='row is-8')
+                ], className='row')
             ], className='columns'),
         ], className='container')
     ], className='section'),
@@ -117,8 +128,15 @@ def set_map_highlight(selected_state, hover_state):
 # Updates plot according to current selection
 @app.callback(Output('series-plot', 'figure'),
               [Input('state-dropdown', 'value')])
-def set_series_highlight(selected_state):
+def set_series_state(selected_state):
     return make_deaths_figure(df_deaths, selected_state)
+
+
+# Updates plot according to current selection
+@app.callback(Output('mobility-plot', 'figure'),
+              [Input('state-dropdown', 'value')])
+def set_mobility_state(selected_state):
+    return make_mobility_figure(dict_mobility, selected_state)
 
 
 # Sets available options in the county dropdown when the state dropdown is changed
