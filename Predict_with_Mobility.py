@@ -155,7 +155,7 @@ def plot_prediction(params, length, state=None):
     real_X = np.asarray(X).T
 
     # Get predictions
-    X_est = []
+    X_est = [] 
     for c in range(num_counties):
         X_est.append(make_data(params[c], consts, counties=[c], return_all=False))
     est_X = np.reshape(X_est, (num_counties*num_compartments, length)).T

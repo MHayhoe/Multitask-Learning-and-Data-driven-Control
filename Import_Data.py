@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import pickle
+import subprocess
 from astropy.convolution import convolve, Gaussian1DKernel
 
 
@@ -122,12 +123,12 @@ def import_mobility_data(filename, country='US'):
     kernel_size = len(dates)
     if kernel_size % 2 == 0:
         kernel_size += 1
-    kernel = Gaussian1DKernel(2,x_size=kernel_size)
+    kernel = Gaussian1DKernel(np.floor(kernel_size / 8), x_size=kernel_size)
 
     data = {}
 
     for c in regions:
-        # Make a data frame just for this county
+        # Make a data frame just for this region
         df_region = df[df['region'] == c]
 
         # Find missing dates and add NaNs
@@ -147,7 +148,7 @@ def import_mobility_data(filename, country='US'):
 
         # Smooth the data with a Gaussian kernel - deals with NaN values
         for cat_ind in range(6):
-            mob_array[:,cat_ind] = convolve(mob_array[:,cat_ind],kernel)
+            mob_array[:,cat_ind] = convolve(mob_array[:,cat_ind], kernel)
 
         data[c] = mob_array
 
@@ -267,7 +268,25 @@ def import_safegraph_data():
     return land_data, age_data, death_data, case_data
 
 
+# Downloads newest versions of Mobility Report and New York Times Infections data
+def download_files():
+    subprocess.run('curl https://www.gstatic.com/covid19/mobility/Global_Mobility_Report.csv'
+                   ' --output Data/Global_Mobility_Report.csv', shell=True)
+    subprocess.run('curl https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-counties.csv'
+                   ' --output Data/nytimes_infections.csv', shell=True)
+
+
+# Required files:
+#   Data/cbg_fips_codes.csv             : FIPS codes for Census Block Groups (CBGs)
+#   Data/cbg_geographic_data.csv        : Land Area for CBGs
+#   Data/cbg_b01.csv                    : Population age distributions for CBGs
+# Files that will be downloaded:
+#   Data/nytimes_infections.csv         : Case counts and deaths data for counties in the US
+#   Data/Global_Mobility_Report.csv     : Mobility data for counties in US, and states in other countries
 if __name__ == '__main__':
+    # Download newest version of files
+    download_files()
+
     # Import and save the data
     land_area_data, age_distribution_data, deaths_data, case_count_data, mobility_data = import_data('Data/Global_Mobility_Report.csv')
 
