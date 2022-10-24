@@ -1,5 +1,5 @@
 # Multitask Learning and Data-driven Control
-Preciado Lab repository for modeling of Covid-19.
+Preciado Lab repository for modeling of COVID-19.
 
 This repository contains Python code to train our multitask learning model for predicting the impact of mobility restrictions on the spread of COVID-19. It also includes Matlab code for data-driven control via geometric programming using these prediction models. For full details, please see the paper linked below.
 
