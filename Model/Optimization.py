@@ -1,11 +1,12 @@
 # Our scripts
-from SEIRD_clinical import make_data, make_data_parallel
+# from SEIRD_clinical import make_data, make_data_parallel
+from SEAIHRD import make_data
 from SEIRD_bootstrap import bootstrap_data
 import Initialization as Init
 from Objectives import prediction_loss, prediction_loss_sgd, prediction_county, bootstrap_loss
 import shared
 import random as rd
-from Helper import inverse_sigmoid, sig_function
+from Helper import inverse_sigmoid, sig_function, posynomial_function
 
 # For autograd
 import autograd.numpy as np
@@ -23,13 +24,22 @@ import pickle
 # Makes an initial guess for optimization parameters
 def make_guess(batch_num=1):
     num_counties = len(shared.consts['n'])
-    return {'rho_EI_coeffs': inverse_sigmoid(1 / 5.1),
+    init_guess = {'rho_EI_coeffs': inverse_sigmoid(1 / 5.1),
+            'rho_EA_coeffs': inverse_sigmoid(1 / 7),
+            'rho_AR_coeffs': inverse_sigmoid(1 / 15.9),
+            'rho_IH_coeffs': inverse_sigmoid(1 / 3),
             'rho_IR_coeffs': inverse_sigmoid(1 / 15.9),
+            'rho_HR_coeffs': inverse_sigmoid(1 / 5.1),
             'beta_I_coeffs': Init.initialize_beta_coeffs(),
             'beta_I_bias': Init.initialize_beta_bias(),
-            'fatality_I': inverse_sigmoid(0.01 * batch_num),
-            'ratio_E': np.array([inverse_sigmoid(0.1) for i in range(num_counties)]),
+            # 'fatality_I': inverse_sigmoid(0.01 * batch_num),
+            'fatality_H': inverse_sigmoid(0.01 * batch_num),
+            'ratio_A': np.array([inverse_sigmoid(0.1) for _ in range(num_counties)]),
             'initial_condition': Init.initial_condition()}
+    if shared.consts['include_cases']:
+        init_guess['tau'] = np.array([inverse_sigmoid(0.3) for _ in range(num_counties)])
+
+    return init_guess
 
 
 # Run the optimization by splitting the counties into batches across epochs, and only updating one batch per step
@@ -41,6 +51,8 @@ def optimize_sgd(num_epochs=20, num_batches=1, num_trials=8, step_size=0.01, sho
     # Multiprocessing
     pool = mp.Pool(mp.cpu_count())
     do_mp = partial(optimize_trial, consts=shared.consts,num_epochs=num_epochs,step_size=step_size, show_plots=show_plots)
+    #with open('mp_params.pickle', 'rb') as handle:
+    #    mp_params = pickle.load(handle)
     mp_params = pool.map(do_mp, range(num_trials))
     opt_params = {}
 
@@ -49,7 +61,7 @@ def optimize_sgd(num_epochs=20, num_batches=1, num_trials=8, step_size=0.01, sho
 
     # Unpack results for each county, returning parameters which give the lowest error
     for c in range(len(shared.consts['n'])):
-        obj_vals = [prediction_county(p,county=c) for p in mp_params]
+        obj_vals = [prediction_county(p,county=c,length=shared.consts['validation_days']) for p in mp_params]
         county_params = deepcopy(mp_params[np.argmin(obj_vals)])
         for k,v in county_params.items():
             if np.ndim(v) >= 1:
@@ -103,6 +115,7 @@ def optimize_parallel_counties(num_epochs=20, num_batches=1, num_trials=8, step_
 def optimize_trial(trial, consts, num_epochs, step_size, pool=None, show_plots=False):
     grad_predict = grad(partial(prediction_loss_sgd, pool=pool))
     shared.consts = consts
+    shared.grad_vals[trial] = np.array([])
     guess = make_guess()
     shared.batches = create_batches(range(len(shared.consts['n'])), shared.consts['num_batches'])
 
@@ -141,11 +154,22 @@ def create_batches(x, num_batches):
 
 # Callback function for optimization
 def print_performance(params, iteration, gradient, trial, show_plots):
-    if iteration % (shared.consts['num_batches'] * 50) == 0:
-        print('Trial {}: epoch {}, loss {:.3e}'.format(trial, iteration // shared.consts['num_batches'], prediction_loss(params)))
+    if shared.grad_vals[trial].size > 0:
+        shared.grad_vals[trial] = np.vstack((shared.grad_vals[trial], np.array([np.linalg.norm(val) for val in gradient.values()])))
+    else:
+        shared.grad_vals[trial] = np.array([np.linalg.norm(val) for val in gradient.values()])
+    if iteration > 0 and iteration % (shared.consts['num_batches'] * 50) == 0:
+        print('Trial {}: epoch {}, loss {:.3e}, gradient norm {:.3e}'.format(trial, iteration // shared.consts['num_batches'], prediction_loss(params), sum(shared.grad_vals[trial][-1])))
         # print(gradient)
         if show_plots:
-            plot_trajectories(params, gradient, trial, iteration)
+            plt.close('all')
+            fig, ax = plt.subplots()
+            ax.plot(shared.grad_vals[trial])
+            plt.yscale("log")
+            ax.legend([str(k) for k in gradient.keys()],loc='lower left')
+            ax.set_title("Gradient Norm")
+            plt.savefig('Plots/grad_{}.png'.format(trial))
+            #plot_trajectories(params, gradient, trial, iteration)
 
 
 # Sets up plotting for optimization callbacks
@@ -159,7 +183,8 @@ def setup_plotting():
     county_range = range(num_counties)
     shared.plot_values['fold'] = None
     shared.plot_values['loss'] = [[] for i in county_range]
-    global_keys = set(['rho_EI_coeffs', 'rho_IR_coeffs', 'fatality_I'])
+    global_keys = set(['rho_EI_coeffs', 'rho_EA_coeffs', 'rho_AR_coeffs', 'rho_IH_coeffs', 'rho_IR_coeffs',
+                       'rho_HR_coeffs', 'fatality_I', 'fatality_H'])
     guess = make_guess()
     county_keys = set(guess.keys()).difference(global_keys)
     for k in global_keys:
@@ -181,7 +206,8 @@ def plot_trajectories(params, plot_params, batch, iteration):
     X_est = make_data(params, shared.consts, return_all=False)
     est_X = (np.asarray(X_est).T * np.repeat(shared.consts['n'], num_compartments)).T
 
-    global_keys = set(['rho_EI_coeffs', 'rho_IR_coeffs', 'fatality_I'])
+    global_keys = set(['rho_EI_coeffs', 'rho_EA_coeffs', 'rho_AR_coeffs', 'rho_IH_coeffs', 'rho_IR_coeffs',
+                       'rho_HR_coeffs', 'fatality_I', 'fatality_H'])
     county_keys = set(plot_params.keys()).difference(global_keys)
 
     plt.clf()
@@ -223,7 +249,7 @@ def plot_trajectories(params, plot_params, batch, iteration):
                 shared.plot_values[k][i] = np.concatenate(
                     (shared.plot_values[k][i], np.expand_dims(np.squeeze(plot_params[k][i]), 0)))
             # plt.clf()
-            ax1.plot(np.asarray(shared.plot_values[k][i]), label=k)
+            # ax1.plot(np.asarray(shared.plot_values[k][i]), label=k)
 
         # ax1.legend(loc='upper left')
         # Plot loss
@@ -235,10 +261,10 @@ def plot_trajectories(params, plot_params, batch, iteration):
 
         # Plot mobility data
         ax1 = plt.subplot(num_counties, num_plots, num_plots * i + 3)
-        beta_I = sig_function(shared.consts['mobility_data'][i][:shared.consts['T'], :], params['beta_I_coeffs'][i],
+        beta_I = posynomial_function(shared.consts['mobility_data'][i][:shared.consts['T'], :], params['beta_I_coeffs'][i],
                               params['beta_I_bias'][i]) * shared.consts['beta_max']
         # Line widths based on weights of each mobility category. Normalized to [0,5].
-        weights = np.abs(np.squeeze(params['beta_I_coeffs'][i]))
+        weights = np.abs(params['beta_I_coeffs'][i,0])
         weights = weights / np.max(weights) * 5
         lines = ax1.plot(shared.consts['mobility_data'][i][:shared.consts['T'], :])
         for j in range(len(lines)):

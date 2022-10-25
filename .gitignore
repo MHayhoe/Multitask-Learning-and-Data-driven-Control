@@ -4,4 +4,6 @@
 /.ipynb_checkpoints/
 *.pickle
 /Paper/
-/covid19
+/covid19/
+/venv/
+/.idea/

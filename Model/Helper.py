@@ -1,6 +1,21 @@
 import autograd.numpy as np
 
 
+# Parametric posynomial function (weighted sum of monomials)
+# w is the weights; in the last dimension, first part w[...0] is the exponents and second part w[...1] is the
+# scale factor.
+def posynomial_function(x, w, b=1, n=1):
+    if len(np.shape(x)) == 3 and len(np.shape(w)) == 3:
+        # return np.einsum('ijk,ik->ij', np.power(x, w[:,0:1,:]), np.exp(w[:,1,:])) + np.exp(b[:,np.newaxis])
+        return np.einsum('ijk,ik->ij', np.power(x, 2), np.exp(w[:,1,:])) + np.exp(b[:,np.newaxis])
+    elif len(np.shape(x)) == 3 and len(np.shape(w)) == 2:
+        # return np.einsum('ijk,ik->ij', np.power(x, w[0:1,:]), np.exp(w[1,:])) + np.exp(b)
+        return np.einsum('ijk,ik->ij', np.power(x, 2), np.exp(w[1,:])) + np.exp(b)
+    else:
+        # return np.einsum('ij,j->i', np.power(x, w[0:1,:]), np.exp(w[1,:])) + np.exp(b)
+        return np.einsum('ij,j->i', np.power(x, 2), np.exp(w[1,:])) + np.exp(b)
+
+
 # Parametric linear-sigmoidal function
 def sig_function(x, w, b=0):
     if len(np.shape(x)) == 3 and len(np.shape(w)) == 2:

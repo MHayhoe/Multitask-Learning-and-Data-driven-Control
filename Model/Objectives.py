@@ -1,5 +1,6 @@
 import shared
-from SEIRD_clinical import make_data, make_data_parallel
+from SEIRD_clinical import make_data_parallel #, make_data
+from SEAIHRD import make_data
 from SEIRD_bootstrap import do_bootstrap
 from Initialization import get_real_data, get_real_data_fold, get_real_data_county, train_fold
 
@@ -34,6 +35,9 @@ def prediction_loss_sgd(params, iteration=0, length=-1, pool=None):
     else:
         X_est = make_data(params, shared.consts, T=length, counties=counties)
 
+    # Incident deaths
+    # return error_predict_loss(np.diff(X), np.diff(X_est), length, counties=counties)
+    # Cumulative deaths
     return error_predict_loss(X, X_est, length, counties=counties)
 
 
@@ -88,14 +92,23 @@ def error_predict_loss(data_true, data_est, length, counties=[]):
         length = shared.consts['T']
     # Mean Square Error
     if counties:
-        n = shared.consts['n'][counties]  # np.repeat(shared.consts['n'][counties], 2)
+        if shared.consts['include_cases']:
+            n = np.repeat(shared.consts['n'][counties], 2)
+        else:
+            n = shared.consts['n'][counties]
         # gamma = shared.consts['gamma_death'][np.repeat(counties, 2)]
     else:
-        n = shared.consts['n']  # np.repeat(shared.consts['n'], 2)  # Since we're considering two compartments for each county
+        if shared.consts['include_cases']:
+            n = np.repeat(shared.consts['n'], 2)  # Since we're considering two compartments for each county
+        else:
+            n = shared.consts['n']
         # gamma = shared.consts['gamma_death']
 
     # return np.einsum('ij,i->', np.einsum('i,i,ij->ij', n, gamma, data_true - data_est)**2, 1/n**2) / length * 1e9
-    return np.einsum('ij,i->', (n[:,np.newaxis]*(data_true - data_est))**2, 1/n**2) / length * 1e9
+    if shared.consts['include_cases']:
+        return np.einsum('ij,i->', (n[:,np.newaxis]*((data_true - data_est)/data_true))**2, 1/n**2) / length  # * 1e9
+    else:
+        return np.einsum('ij,i->', (n[:, np.newaxis] * (data_true - data_est)) ** 2, 1 / n ** 2) / length * 1e9
     # np.sum([np.sum(np.multiply(n * shared.consts['gamma_death'][i], data_true[i] - data_est[i])**2) / n[i]**2
     #               for i in range(len(data_true))]) / length * 1e9
 

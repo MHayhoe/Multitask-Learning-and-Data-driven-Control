@@ -120,10 +120,10 @@ def import_mobility_data(filename, country='US'):
     dates = df.date.unique()
 
     # For interpolating between nan values
-    kernel_size = len(dates)
-    if kernel_size % 2 == 0:
-        kernel_size += 1
-    kernel = Gaussian1DKernel(np.floor(kernel_size / 8), x_size=kernel_size)
+    #kernel_size = min(15,len(dates))
+    #if kernel_size % 2 == 0:
+    #    kernel_size += 1
+    #kernel = Gaussian1DKernel(np.floor(kernel_size / 8), x_size=kernel_size)
 
     data = {}
 
@@ -132,27 +132,42 @@ def import_mobility_data(filename, country='US'):
         df_region = df[df['region'] == c]
 
         # Find missing dates and add NaNs
-        region_dates = df_region.date.unique()
-        missing_dates = np.setdiff1d(dates, region_dates)
-        new_data = [{'region': c, 'date': d} for d in missing_dates]
-        df_region = df_region.append(new_data,ignore_index=True)
-        df_region.sort_values(by='date')
+        df_region = add_missing_dates(df_region, dates, 'region', c)
+        # region_dates = df_region.date.unique()
+        # missing_dates = np.setdiff1d(dates, region_dates)
+        # new_data = [{'region': c, 'date': d} for d in missing_dates]
+        # df_region = df_region.append(new_data,ignore_index=True)
+        # df_region.sort_values(by='date')
 
         df_region = df_region.filter(items=['retail_and_recreation_percent_change_from_baseline',
                                             'grocery_and_pharmacy_percent_change_from_baseline',
                                             'parks_percent_change_from_baseline',
                                             'transit_stations_percent_change_from_baseline',
-                                            'workplaces_percent_change_from_baseline',
-                                            'residential_percent_change_from_baseline'])
+                                            'workplaces_percent_change_from_baseline'])
+                                            #'residential_percent_change_from_baseline'])
         mob_array = df_region.to_numpy()
-
         # Smooth the data with a Gaussian kernel - deals with NaN values
-        for cat_ind in range(6):
-            mob_array[:,cat_ind] = convolve(mob_array[:,cat_ind], kernel)
-
-        data[c] = mob_array
+        #for cat_ind in range(5):
+        #    mob_array[:,cat_ind] = convolve(mob_array[:,cat_ind], kernel)
+        data[c] = interpolate_nans(mob_array)
 
     return data
+
+
+# Linearly interpolate for missing mobility information
+def interpolate_nans(X):
+    num_dates, num_categories = X.shape
+
+    for cat_ind in range(num_categories):
+        logical_nan = np.isnan(X[:,cat_ind])
+        # If all NaNs, replace with zeros
+        if logical_nan.all():
+            X[:, cat_ind] = np.zeros(num_dates)
+        # Do linear interpolation between points
+        else:
+            X[:, cat_ind] = np.interp(np.arange(num_dates), np.where(~logical_nan)[0], X[~logical_nan, cat_ind])
+
+    return X
 
 
 # Imports population and mobility data, removing any entries that aren't in both
@@ -160,6 +175,7 @@ def import_data(mobility_name='Global_Mobility_Report.csv', country='US'):
     land_data, age_data, death_data, case_data = import_safegraph_data()
     print('Land Area, Age, Deaths, and Case Counts data imported.')
     mob_data = import_mobility_data(mobility_name, country)
+    # mob_data = import_places_data()
     print('Mobility data imported.')
 
     # Remove any entries that aren't in all dictionaries
@@ -182,6 +198,37 @@ def import_data(mobility_name='Global_Mobility_Report.csv', country='US'):
     print('Dictionaries intersected.')
 
     return land_data, age_data, death_data, case_data, mob_data
+
+
+# Imports data from SafeGraph on visits per square feet in a number of counties
+def import_places_data(num_categories=10):
+    df_fips = pd.read_csv('Data/county_list.csv')
+
+    # For saving mobility data
+    data = {}
+
+    for fips in df_fips.FIPS:
+        region_name = str(df_fips[df_fips.FIPS == fips].county.iat[0])
+        df_region = pd.read_csv('Data/time_series_vsq_categories-' + str(fips) + '.csv')
+        df_region = df_region[df_region['visits_type'] == 'visits_sq_ft']
+        dates = df_region.date.unique()
+        df_region = df_region.drop(['date','visits_type'],axis=1)
+        mob_array = df_region.to_numpy()
+
+        # For interpolating between nan values
+        kernel_size = len(dates)
+        if kernel_size % 2 == 0:
+            kernel_size += 1
+        kernel = Gaussian1DKernel(np.floor(kernel_size / 8), x_size=kernel_size)
+
+        # Smooth the data with a Gaussian kernel - deals with NaN values
+        for cat_ind in range(num_categories):
+            mob_array[:, cat_ind] = convolve(mob_array[:, cat_ind], kernel)
+
+        # Save the mobility data for this region
+        data[region_name] = mob_array
+
+    return data
 
 
 # Imports safegraph data at the Census Block Group (CBG) level and aggregates at the county level
@@ -257,15 +304,30 @@ def import_safegraph_data():
 
         # Deaths and case counts
         if len(fips) == 5:
-            case_data[region] = df_cases[df_cases['fips'] == fips].cases.to_numpy()
-            death_data[region] = df_deaths[df_deaths['fips'] == fips].deaths.to_numpy()
+            # Fix any missing dates
+            if fips == 42101:
+                print('Philly')
+            region_cases = add_missing_dates(df_cases[df_cases['fips'] == fips], dates, 'fips', fips)
+            region_deaths = add_missing_dates(df_deaths[df_deaths['fips'] == fips], dates, 'fips', fips)
+            case_data[region] = region_cases.cases.to_numpy()
+            death_data[region] = region_deaths.deaths.to_numpy()
         else:
-            region_cases = df_cases[df_cases['fips'].str.startswith(fips)]
-            region_deaths = df_deaths[df_deaths['fips'].str.startswith(fips)]
+            region_cases = add_missing_dates(df_cases[df_cases['fips'].str.startswith(fips)], dates, 'fips', fips)
+            region_deaths = add_missing_dates(df_deaths[df_deaths['fips'].str.startswith(fips)], dates, 'fips', fips)
             case_data[region] = [np.sum(region_cases[region_cases['date'] == d].cases.to_numpy().T) for d in dates]
             death_data[region] = [np.sum(region_deaths[region_deaths['date'] == d].deaths.to_numpy().T) for d in dates]
 
     return land_data, age_data, death_data, case_data
+
+
+# Alters the dataframe df by adding NaN values to any dates not in the list date_list
+def add_missing_dates(df, date_list, primary_key, key_value):
+    current_dates = df.date.unique()
+    missing_dates = np.setdiff1d(date_list, current_dates)
+    new_data = [{primary_key: key_value, 'date': d} for d in missing_dates]
+    df = df.append(new_data, ignore_index=True)
+    df = df.sort_values(by='date')
+    return df
 
 
 # Downloads newest versions of Mobility Report and New York Times Infections data
@@ -285,7 +347,7 @@ def download_files():
 #   Data/Global_Mobility_Report.csv     : Mobility data for counties in US, and states in other countries
 if __name__ == '__main__':
     # Download newest version of files
-    download_files()
+    #download_files()
 
     # Import and save the data
     land_area_data, age_distribution_data, deaths_data, case_count_data, mobility_data = import_data('Data/Global_Mobility_Report.csv')

@@ -1,5 +1,5 @@
 import autograd.numpy as np
-from Helper import sigmoid, sig_function
+from Helper import sigmoid, sig_function, posynomial_function
 import multiprocessing as mp
 from functools import partial
 
@@ -43,16 +43,16 @@ def make_data(true_params, consts, T=-1, counties=[], return_all=False):
         x_0 = np.reshape(params['initial_condition'], (1,3))
         ##  Beta rates  ##
         # I -> R
-        beta_I = sig_function(params['mobility_data'][counties], params['beta_I_coeffs'], params['beta_I_bias']) \
-                 * params['beta_max']
+        beta_I = posynomial_function(params['mobility_data'][counties], params['beta_I_coeffs'], params['beta_I_bias'],
+                                     params['n'][counties]) * params['beta_max']
         # E -> I
         beta_E = np.einsum('i,ij->ij', simple_function(params['ratio_E']), beta_I)
     else:
         x_0 = params['initial_condition'][counties]
         ##  Beta rates  ##
         # I -> R
-        beta_I = sig_function(params['mobility_data'][counties], params['beta_I_coeffs'][counties],
-                              params['beta_I_bias'][counties]) * params['beta_max']
+        beta_I = posynomial_function(params['mobility_data'][counties], params['beta_I_coeffs'][counties],
+                              params['beta_I_bias'][counties], params['n'][counties]) * params['beta_max']
         # E -> I
         beta_E = np.einsum('i,ij->ij', simple_function(params['ratio_E'][counties]), beta_I)
 
